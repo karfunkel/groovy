@@ -487,7 +487,7 @@ class DocGenerator {
                 (destination =~ /#([^(]*)\(([^)]+)\)/).each { String all, String name, String argsText ->
                     def args = argsText.split(/,\s?/).toList()
                     def first = args.remove(0)
-                    destination = "$first#$name(${args.join(', ')})".toString()
+                    destination = "${first}#$name(${args.join(', ')})".toString()
                 }
             }
 

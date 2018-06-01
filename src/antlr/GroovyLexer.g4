@@ -858,7 +858,7 @@ IdentifierInGString
 
 fragment
 JavaLetterInGString
-    :   [a-zA-Z_] // these are the "java letters" below 0x7F, except for $
+    :   [a-zA-Z#_] // these are the "java letters" below 0x7F, except for $
     |   // covers all characters above 0x7F which are not a surrogate
         ~[\u0000-\u007F\uD800-\uDBFF]
         {Character.isJavaIdentifierStart(_input.LA(-1))}?
@@ -869,7 +869,7 @@ JavaLetterInGString
 
 fragment
 JavaLetterOrDigitInGString
-    :   [a-zA-Z0-9_] // these are the "java letters or digits" below 0x7F, except for $
+    :   [a-zA-Z#0-9_] // these are the "java letters or digits" below 0x7F, except for $
     |   // covers all characters above 0x7F which are not a surrogate
         ~[\u0000-\u007F\uD800-\uDBFF]
         {Character.isJavaIdentifierPart(_input.LA(-1))}?
@@ -881,7 +881,7 @@ JavaLetterOrDigitInGString
 
 fragment
 JavaLetter
-    :   [a-zA-Z$_] // these are the "java letters" below 0x7F
+    :   [a-zA-Z#$_] // these are the "java letters" below 0x7F
     |   // covers all characters above 0x7F which are not a surrogate
         ~[\u0000-\u007F\uD800-\uDBFF]
         {Character.isJavaIdentifierStart(_input.LA(-1))}?
@@ -892,7 +892,7 @@ JavaLetter
 
 fragment
 JavaLetterOrDigit
-    :   [a-zA-Z0-9$_] // these are the "java letters or digits" below 0x7F
+    :   [a-zA-Z#0-9$_] // these are the "java letters or digits" below 0x7F
     |   // covers all characters above 0x7F which are not a surrogate
         ~[\u0000-\u007F\uD800-\uDBFF]
         {Character.isJavaIdentifierPart(_input.LA(-1))}?

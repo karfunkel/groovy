@@ -294,7 +294,7 @@ public class BindFactory extends AbstractFactory {
         Class currentClass = psb.bean.getClass()
         while (currentClass != null) {
             // should we check interfaces as well?  if so at what level?
-            def trigger = (TriggerBinding) syntheticBindings.get("$currentClass.name#$property" as String)
+            def trigger = (TriggerBinding) syntheticBindings.get("${currentClass.name}#$property" as String)
             if (trigger != null) {
                 return trigger
             }
