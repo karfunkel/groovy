@@ -25,16 +25,15 @@ import org.codehaus.groovy.ast.GroovyCodeVisitor;
 
 /**
  * Represents a method pointer on an object such as
- * foo.&bar which means find the method pointer on foo for the method called "bar"
- * which is equivalent to
+ * {@code foo.&bar} which means find the method pointer for the {@code bar} method on the {@code foo} instance.
+ * This is equivalent to:
  * <code>
  * foo.metaClass.getMethodPointer(foo, "bar")
  * </code>
  */
 public class MethodPointerExpression extends Expression {
-
-    private final Expression expression;
-    private final Expression methodName;
+    protected final Expression expression;
+    protected final Expression methodName;
 
     public MethodPointerExpression(Expression expression, Expression methodName) {
         this.expression = expression;

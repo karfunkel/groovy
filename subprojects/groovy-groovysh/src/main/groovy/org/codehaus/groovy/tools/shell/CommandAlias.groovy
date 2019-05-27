@@ -23,9 +23,8 @@ import jline.console.completer.Completer
 
 /**
  * Provides simple command aliasing.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
+@Deprecated
 class CommandAlias
     extends CommandSupport
 {

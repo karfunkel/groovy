@@ -47,10 +47,8 @@ import java.util.Map;
 
 /**
  * A SAX handler for turning XML into Groovy scripts
- * 
- * @author James Strachan
- * @author paulk
  */
+@Deprecated
 public class DomToGroovy {
 
     protected IndentPrinter out;
@@ -204,7 +202,7 @@ public class DomToGroovy {
     }
 
     protected void printQuoted(String text) {
-        if (text.indexOf("\n") != -1) {
+        if (text.contains("\n")) {
             print("'''");
             print(text);
             print("'''");

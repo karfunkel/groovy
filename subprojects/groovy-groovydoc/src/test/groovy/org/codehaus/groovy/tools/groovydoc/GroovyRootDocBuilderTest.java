@@ -18,13 +18,10 @@
  */
 package org.codehaus.groovy.tools.groovydoc;
 
-import groovy.util.GroovyTestCase;
+import groovy.test.GroovyTestCase;
 
 import java.util.ArrayList;
 
-/**
- * @author Paul King
- */
 public class GroovyRootDocBuilderTest extends GroovyTestCase {
     private String src = "/**\n" +
             " * <h1>Description</h1>\n" +

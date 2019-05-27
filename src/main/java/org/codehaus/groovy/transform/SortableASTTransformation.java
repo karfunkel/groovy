@@ -26,7 +26,6 @@ import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.FieldNode;
 import org.codehaus.groovy.ast.InnerClassNode;
-import org.codehaus.groovy.ast.MethodNode;
 import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.PropertyNode;
 import org.codehaus.groovy.ast.expr.BinaryExpression;
@@ -42,8 +41,12 @@ import org.codehaus.groovy.runtime.StringGroovyMethods;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedInnerClass;
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedMethod;
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType;
 import static org.codehaus.groovy.ast.ClassHelper.make;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.andX;
@@ -59,7 +62,9 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.declS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.eqX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.equalsNullX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.fieldX;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.getAllProperties;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifS;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.localVarX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.neX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.notNullX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
@@ -98,27 +103,30 @@ public class SortableASTTransformation extends AbstractASTTransformation {
         }
     }
 
-    private void createSortable(AnnotationNode annotation, ClassNode classNode) {
-        List<String> includes = getMemberStringList(annotation, "includes");
-        List<String> excludes = getMemberStringList(annotation, "excludes");
-        boolean reversed = memberHasValue(annotation, "reversed", true);
-        if (!checkIncludeExcludeUndefinedAware(annotation, excludes, includes, MY_TYPE_NAME)) return;
-        if (!checkPropertyList(classNode, includes, "includes", annotation, MY_TYPE_NAME, false)) return;
-        if (!checkPropertyList(classNode, excludes, "excludes", annotation, MY_TYPE_NAME, false)) return;
+    private void createSortable(AnnotationNode anno, ClassNode classNode) {
+        List<String> includes = getMemberStringList(anno, "includes");
+        List<String> excludes = getMemberStringList(anno, "excludes");
+        boolean reversed = memberHasValue(anno, "reversed", true);
+        boolean includeSuperProperties = memberHasValue(anno, "includeSuperProperties", true);
+        boolean allNames = memberHasValue(anno, "allNames", true);
+        boolean allProperties = !memberHasValue(anno, "allProperties", false);
+        if (!checkIncludeExcludeUndefinedAware(anno, excludes, includes, MY_TYPE_NAME)) return;
+        if (!checkPropertyList(classNode, includes, "includes", anno, MY_TYPE_NAME, false, includeSuperProperties, allProperties)) return;
+        if (!checkPropertyList(classNode, excludes, "excludes", anno, MY_TYPE_NAME, false, includeSuperProperties, allProperties)) return;
         if (classNode.isInterface()) {
-            addError(MY_TYPE_NAME + " cannot be applied to interface " + classNode.getName(), annotation);
+            addError(MY_TYPE_NAME + " cannot be applied to interface " + classNode.getName(), anno);
         }
-        List<PropertyNode> properties = findProperties(annotation, classNode, includes, excludes);
+        List<PropertyNode> properties = findProperties(anno, classNode, includes, excludes, allProperties, includeSuperProperties, allNames);
         implementComparable(classNode);
 
-        classNode.addMethod(new MethodNode(
+        addGeneratedMethod(classNode,
                 "compareTo",
                 ACC_PUBLIC,
                 ClassHelper.int_TYPE,
                 params(param(newClass(classNode), OTHER)),
                 ClassNode.EMPTY_ARRAY,
                 createCompareToMethodBody(properties, reversed)
-        ));
+        );
 
         for (PropertyNode property : properties) {
             createComparatorFor(classNode, property, reversed);
@@ -141,12 +149,12 @@ public class SortableASTTransformation extends AbstractASTTransformation {
         if (properties.isEmpty()) {
             // perhaps overkill but let compareTo be based on hashes for commutativity
             // return this.hashCode() <=> other.hashCode()
-            statements.add(declS(varX(THIS_HASH, ClassHelper.Integer_TYPE), callX(varX("this"), "hashCode")));
-            statements.add(declS(varX(OTHER_HASH, ClassHelper.Integer_TYPE), callX(varX(OTHER), "hashCode")));
+            statements.add(declS(localVarX(THIS_HASH, ClassHelper.Integer_TYPE), callX(varX("this"), "hashCode")));
+            statements.add(declS(localVarX(OTHER_HASH, ClassHelper.Integer_TYPE), callX(varX(OTHER), "hashCode")));
             statements.add(returnS(compareExpr(varX(THIS_HASH), varX(OTHER_HASH), reversed)));
         } else {
             // int value = 0;
-            statements.add(declS(varX(VALUE, ClassHelper.int_TYPE), constX(0)));
+            statements.add(declS(localVarX(VALUE, ClassHelper.int_TYPE), constX(0)));
             for (PropertyNode property : properties) {
                 String propName = property.getName();
                 // value = this.prop <=> other.prop;
@@ -182,16 +190,16 @@ public class SortableASTTransformation extends AbstractASTTransformation {
         String className = classNode.getName() + "$" + propName + "Comparator";
         ClassNode superClass = makeClassSafeWithGenerics(AbstractComparator.class, classNode);
         InnerClassNode cmpClass = new InnerClassNode(classNode, className, ACC_PRIVATE | ACC_STATIC, superClass);
-        classNode.getModule().addClass(cmpClass);
+        addGeneratedInnerClass(classNode, cmpClass);
 
-        cmpClass.addMethod(new MethodNode(
+        addGeneratedMethod(cmpClass,
                 "compare",
                 ACC_PUBLIC,
                 ClassHelper.int_TYPE,
                 params(param(newClass(classNode), ARG0), param(newClass(classNode), ARG1)),
                 ClassNode.EMPTY_ARRAY,
                 createCompareMethodBody(property, reversed)
-        ));
+        );
 
         String fieldName = "this$" + propName + "Comparator";
         // private final Comparator this$<property>Comparator = new <type>$<property>Comparator();
@@ -201,22 +209,26 @@ public class SortableASTTransformation extends AbstractASTTransformation {
                 COMPARATOR_TYPE,
                 ctorX(cmpClass));
 
-        classNode.addMethod(new MethodNode(
+        addGeneratedMethod(classNode,
                 "comparatorBy" + propName,
                 ACC_PUBLIC | ACC_STATIC,
                 COMPARATOR_TYPE,
                 Parameter.EMPTY_ARRAY,
                 ClassNode.EMPTY_ARRAY,
                 returnS(fieldX(cmpField))
-        ));
+        );
     }
 
-    private List<PropertyNode> findProperties(AnnotationNode annotation, ClassNode classNode, final List<String> includes, final List<String> excludes) {
+    private List<PropertyNode> findProperties(AnnotationNode annotation, final ClassNode classNode, final List<String> includes,
+                                              final List<String> excludes, final boolean allProperties,
+                                              final boolean includeSuperProperties, final boolean allNames) {
+        Set<String> names = new HashSet<String>();
+        List<PropertyNode> props = getAllProperties(names, classNode, classNode, true, false, allProperties,
+                false, includeSuperProperties, false, false, allNames, false);
         List<PropertyNode> properties = new ArrayList<PropertyNode>();
-        for (PropertyNode property : classNode.getProperties()) {
+        for (PropertyNode property : props) {
             String propertyName = property.getName();
-            if (property.isStatic() ||
-                    (excludes != null && excludes.contains(propertyName)) ||
+            if ((excludes != null && excludes.contains(propertyName)) ||
                     includes != null && !includes.contains(propertyName)) continue;
             properties.add(property);
         }

@@ -18,11 +18,15 @@
  */
 package groovy.json
 
-import static JsonTokenType.*
+import groovy.test.GroovyTestCase
 
-/**
- * @author Guillaume Laforge
- */
+import static groovy.json.JsonTokenType.FALSE
+import static groovy.json.JsonTokenType.NULL
+import static groovy.json.JsonTokenType.NUMBER
+import static groovy.json.JsonTokenType.OPEN_CURLY
+import static groovy.json.JsonTokenType.STRING
+import static groovy.json.JsonTokenType.TRUE
+
 class JsonTokenValueTest extends GroovyTestCase {
 
     void testValues() {

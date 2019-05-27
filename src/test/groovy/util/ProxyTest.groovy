@@ -18,9 +18,6 @@
  */
 package groovy.util
 
-/**
-* @author Dierk Koenig
-**/
 class ProxyTest extends GroovyTestCase {
 
     void testStringDecoration(){
@@ -42,7 +39,7 @@ class ProxyTest extends GroovyTestCase {
   /*
    *  Some test cases to probe perceived problems with each and collect on Proxy objects.
    *  cf. GROOVY-1461.  Jonathan Carlson <Jonathan.Carlson@katun.com> made a proposal for a test
-   *  as a single method, Russel Winder <russel@russel.org.uk> split things up when entering
+   *  as a single method, Russel Winder <russel@winder.org.uk> split things up when entering
    *  them so that there is only a single assert per method to try and maximize the benefit of
    *  the tests.
    */

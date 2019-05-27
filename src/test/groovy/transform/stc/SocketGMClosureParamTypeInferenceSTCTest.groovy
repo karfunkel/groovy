@@ -20,8 +20,6 @@
 package groovy.transform.stc
 /**
  * Unit tests for static type checking : closure parameter type inference for {@link org.codehaus.groovy.runtime.SocketGroovyMethods}.
- *
- * @author Cedric Champeau
  */
 class SocketGMClosureParamTypeInferenceSTCTest extends StaticTypeCheckingTestCase {
     void testAccept() {
@@ -36,7 +34,7 @@ class SocketGMClosureParamTypeInferenceSTCTest extends StaticTypeCheckingTestCas
                     assert !it.closed
                 }
             }
-            ServerSocket s = [bound:{true}, accept: {[:] as Socket}] as ServerSocket
+            ServerSocket s = [isBound:{true}, accept: {[:] as Socket}] as ServerSocket
             foo(s)
             bar(s)
         '''

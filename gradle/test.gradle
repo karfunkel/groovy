@@ -18,15 +18,23 @@
  */
 allprojects {
     tasks.withType(Test) {
-        if (JavaVersion.current().isJava8Compatible()) {
-            jvmArgs '-ea', "-Xms${groovyJUnit_ms}", "-Xmx${groovyJUnit_mx}", "-XX:+UseConcMarkSweepGC", "-Duser.language=en"
+        def jdk8 = ['-XX:+UseConcMarkSweepGC']
+        def jdk9 = ['-Djava.locale.providers=COMPAT,SPI']
+//        def jdk9 = ['-Djava.locale.providers=COMPAT,SPI', '--illegal-access=debug']
+        def common = ['-ea', "-Xms${groovyJUnit_ms}", "-Xmx${groovyJUnit_mx}", "-Duser.language=en" ]
+        if (JavaVersion.current().isJava9Compatible()) {
+            jvmArgs (*common, *jdk9)
+            systemProperty "groovy.force.illegal.access", findProperty("groovy.force.illegal.access")
+        } else if (JavaVersion.current().isJava8Compatible()) {
+            jvmArgs (*common, *jdk8)
         } else {
-            jvmArgs '-ea', "-Xms${groovyJUnit_ms}", "-Xmx${groovyJUnit_mx}", "-XX:PermSize=${groovyJUnit_permSize}", "-XX:MaxPermSize=${groovyJUnit_maxPermSize}", "-XX:+UseConcMarkSweepGC", "-Duser.language=en"
+            jvmArgs (*common, "-XX:PermSize=${groovyJUnit_permSize}", "-XX:MaxPermSize=${groovyJUnit_maxPermSize}")
         }
         def headless = System.properties['java.awt.headless']
         if (headless == 'true') {
             systemProperties 'java.awt.headless': 'true'
         }
+        systemProperties 'apple.awt.UIElement': 'true', 'javadocAssertion.src.dir': './src/main'
 
         forkEvery = 50
         maxParallelForks = isRunningOnCI() ? 1 : Runtime.runtime.availableProcessors()
@@ -77,7 +85,6 @@ tasks.withType(Test) {
     if (testdb) {
         systemProperties 'groovy.testdb.props': testdb
     }
-    systemProperties 'apple.awt.UIElement': 'true', 'javadocAssertion.src.dir': './src/main/java'
     systemProperties 'gradle.home': gradle.gradleHomeDir // this is needed by the security.policy
 
     classpath = files('src/test') + classpath
@@ -137,8 +144,8 @@ task compileTestExtensionModule(type: JavaCompile) {
     classpath = files(jar)
     source fileTree("$extModuleFixtureDir/src/main/java")
     destinationDir = file("$extModuleOutputDir/classes")
-    sourceCompatibility = 1.6
-    targetCompatibility = 1.6
+    sourceCompatibility = 1.7
+    targetCompatibility = 1.7
 }
 
 task testExtensionModuleJar(type: Jar) {

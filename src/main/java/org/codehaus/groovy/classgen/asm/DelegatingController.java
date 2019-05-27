@@ -30,7 +30,6 @@ import org.objectweb.asm.MethodVisitor;
 
 /**
  * This class will delegate all calls to a WriterController given in the constructor. 
- * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
  */
 public class DelegatingController extends WriterController {
     private final WriterController delegationController;
@@ -117,6 +116,16 @@ public class DelegatingController extends WriterController {
     @Override
     public LambdaWriter getLambdaWriter() {
         return delegationController.getLambdaWriter();
+    }
+
+    @Override
+    public MethodPointerExpressionWriter getMethodPointerExpressionWriter() {
+        return delegationController.getMethodPointerExpressionWriter();
+    }
+
+    @Override
+    public MethodReferenceExpressionWriter getMethodReferenceExpressionWriter() {
+        return delegationController.getMethodReferenceExpressionWriter();
     }
     
     @Override

@@ -53,14 +53,11 @@ import java.util.Map;
  * supposed to go into the method 
  * {@link ClassNodeResolver#findClassNode(String, CompilationUnit)} while the 
  * entry method is {@link ClassNodeResolver#resolveName(String, CompilationUnit)}
- * 
- * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
  */
 public class ClassNodeResolver {
 
     /**
      * Helper class to return either a SourceUnit or ClassNode.
-     * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
      */
     public static class LookupResult {
         private final SourceUnit su;
@@ -214,7 +211,7 @@ public class ClassNodeResolver {
             LookupResult lr = tryAsScript(name, compilationUnit, null);
             return lr;
         } catch (CompilationFailedException cfe) {
-            throw new GroovyBugError("The lookup for "+name+" caused a failed compilaton. There should not have been any compilation from this call.", cfe);
+            throw new GroovyBugError("The lookup for " + name + " caused a failed compilation. There should not have been any compilation from this call.", cfe);
         }
         //TODO: the case of a NoClassDefFoundError needs a bit more research
         // a simple recompilation is not possible it seems. The current class

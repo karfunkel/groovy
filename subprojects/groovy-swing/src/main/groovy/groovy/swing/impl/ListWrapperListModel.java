@@ -26,8 +26,6 @@ import java.util.ListIterator;
 
 /**
  * A {@code ListModel} implementation that's backed by a live {@code List}.
- *
- * @author Andres Almiray
  */
 public class ListWrapperListModel<E> extends AbstractListModel {
     private final List<E> delegate;
@@ -151,9 +149,7 @@ public class ListWrapperListModel<E> extends AbstractListModel {
         if (fromIndex > toIndex) {
             throw new IllegalArgumentException("fromIndex must be <= toIndex");
         }
-        for (int i = toIndex; i >= fromIndex; i--) {
-            delegate.remove(i);
-        }
+        delegate.subList(fromIndex, toIndex + 1).clear();
         fireIntervalRemoved(this, fromIndex, toIndex);
     }
 }

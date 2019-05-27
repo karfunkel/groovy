@@ -18,10 +18,16 @@
  */
 package groovy.sql
 
-import java.sql.Connection
-import javax.sql.DataSource
+import groovy.test.GroovyTestCase
 
-import static groovy.sql.SqlTestConstants.*
+import javax.sql.DataSource
+import java.sql.Connection
+
+import static groovy.sql.SqlTestConstants.DB_DATASOURCE
+import static groovy.sql.SqlTestConstants.DB_DS_KEY
+import static groovy.sql.SqlTestConstants.DB_PASSWORD
+import static groovy.sql.SqlTestConstants.DB_URL_PREFIX
+import static groovy.sql.SqlTestConstants.DB_USER
 
 /**
  * This is more of a sample program than a unit test and is here as an easy
@@ -183,7 +189,7 @@ class SqlTest extends GroovyTestCase {
                 metaData.getColumnName(it).toLowerCase()
             }
         }
-        assert data.size == 2 && !(data - ['firstname', 'lastname'])
+        assert data.size() == 2 && !(data - ['firstname', 'lastname'])
     }
 
     void testCallMethodFromObjectOnGroovyResultSet() {

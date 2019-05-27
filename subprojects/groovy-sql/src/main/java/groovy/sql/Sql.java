@@ -22,6 +22,7 @@ import groovy.lang.Closure;
 import groovy.lang.GString;
 import groovy.lang.MissingPropertyException;
 import groovy.lang.Tuple;
+import groovy.transform.NamedParam;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.SimpleType;
 import org.codehaus.groovy.runtime.InvokerHelper;
@@ -109,7 +110,7 @@ import static org.apache.groovy.sql.extensions.SqlExtensions.toRowResult;
  * Now try a query using <code>eachRow</code>:
  * <pre>
  * println 'Some GR8 projects:'
- * sql.eachRow('select * from PROJECT') { row ->
+ * sql.eachRow('select * from PROJECT') { row {@code ->}
  *     println "${row.name.padRight(10)} ($row.url)"
  * }
  * </pre>
@@ -134,7 +135,7 @@ import static org.apache.groovy.sql.extensions.SqlExtensions.toRowResult;
  * </pre>
  * Also, <code>eachRow</code> and <code>rows</code> support paging.  Here's an example: 
  * <pre>
- * sql.eachRow('select * from PROJECT', 2, 2) { row ->
+ * sql.eachRow('select * from PROJECT', 2, 2) { row {@code ->}
  *     println "${row.name.padRight(10)} ($row.url)"
  * }
  * </pre>
@@ -229,18 +230,8 @@ import static org.apache.groovy.sql.extensions.SqlExtensions.toRowResult;
  * the interaction with the underlying database.
  * <p>
  * This class is <b>not</b> thread-safe.
- *
- * @author Chris Stevenson
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Paul King
- * @author Marc DeXeT
- * @author John Bito
- * @author John Hurst
- * @author David Durham
- * @author Daniel Henrique Alves Lima
- * @author David Sutherland
  */
-public class Sql {
+public class Sql implements AutoCloseable {
 
     /**
      * Hook to allow derived classes to access the log
@@ -249,6 +240,7 @@ public class Sql {
 
     private static final List<Object> EMPTY_LIST = Collections.emptyList();
     private static final int USE_COLUMN_NAMES = -1;
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     private DataSource dataSource;
 
@@ -303,12 +295,8 @@ public class Sql {
      * @throws SQLException if a database access error occurs
      */
     public static void withInstance(String url, Closure c) throws SQLException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url);
+        try (Sql sql = newInstance(url)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -343,12 +331,8 @@ public class Sql {
      * @throws SQLException if a database access error occurs
      */
     public static void withInstance(String url, Properties properties, Closure c) throws SQLException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url, properties);
+        try (Sql sql = newInstance(url, properties)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -389,12 +373,8 @@ public class Sql {
      */
     public static void withInstance(String url, Properties properties, String driverClassName, Closure c)
             throws SQLException, ClassNotFoundException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url, properties, driverClassName);
+        try (Sql sql = newInstance(url, properties, driverClassName)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -429,12 +409,8 @@ public class Sql {
      * @throws SQLException if a database access error occurs
      */
     public static void withInstance(String url, String user, String password, Closure c) throws SQLException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url, user, password);
+        try (Sql sql = newInstance(url, user, password)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -475,12 +451,8 @@ public class Sql {
      */
     public static void withInstance(String url, String user, String password, String driverClassName, Closure c)
             throws SQLException, ClassNotFoundException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url, user, password, driverClassName);
+        try (Sql sql = newInstance(url, user, password, driverClassName)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -514,12 +486,8 @@ public class Sql {
      */
     public static void withInstance(String url, String driverClassName, Closure c)
             throws SQLException, ClassNotFoundException {
-        Sql sql = null;
-        try {
-            sql = newInstance(url, driverClassName);
+        try (Sql sql = newInstance(url, driverClassName)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -561,7 +529,23 @@ public class Sql {
      * @throws SQLException           if a database access error occurs
      * @throws ClassNotFoundException if the driver class cannot be found or loaded
      */
-    public static Sql newInstance(Map<String, Object> args) throws SQLException, ClassNotFoundException {
+    public static Sql newInstance(
+            @NamedParam(value = "url", type = String.class, required = true)
+            @NamedParam(value = "properties", type = Properties.class)
+            @NamedParam(value = "driverClassName", type = String.class)
+            @NamedParam(value = "driver", type = String.class)
+            @NamedParam(value = "user", type = String.class)
+            @NamedParam(value = "password", type = String.class)
+            @NamedParam(value = "cacheNamedQueries", type = Boolean.class)
+            @NamedParam(value = "cacheStatements", type = Boolean.class)
+            @NamedParam(value = "enableNamedQueries", type = Boolean.class)
+            @NamedParam(value = "resultSetConcurrency", type = Integer.class)
+            @NamedParam(value = "resultSetHoldability", type = Integer.class)
+            @NamedParam(value = "resultSetType", type = Integer.class)
+            // TODO below will be deleted once we fix type checker to understand
+            // readonly Map otherwise seen as Map<String, Serializable>
+            @NamedParam(value = "unused", type = Object.class)
+            Map<String, Object> args) throws SQLException, ClassNotFoundException {
         if (!args.containsKey("url"))
             throw new IllegalArgumentException("Argument 'url' is required");
 
@@ -574,6 +558,7 @@ public class Sql {
         // Make a copy so destructive operations will not affect the caller
         Map<String, Object> sqlArgs = new HashMap<String, Object>(args);
 
+        sqlArgs.remove("unused"); // TODO remove
         Object driverClassName = sqlArgs.remove("driverClassName");
         if (driverClassName == null) driverClassName = sqlArgs.remove("driver");
         if (driverClassName != null) loadDriver(driverClassName.toString());
@@ -630,13 +615,26 @@ public class Sql {
      * @throws SQLException if a database access error occurs
      * @throws ClassNotFoundException if the driver class cannot be found or loaded
      */
-    public static void withInstance(Map<String, Object> args, Closure c) throws SQLException, ClassNotFoundException {
-        Sql sql = null;
-        try {
-            sql = newInstance(args);
+    public static void withInstance(
+            @NamedParam(value = "url", type = String.class, required = true)
+            @NamedParam(value = "properties", type = Properties.class)
+            @NamedParam(value = "driverClassName", type = String.class)
+            @NamedParam(value = "driver", type = String.class)
+            @NamedParam(value = "user", type = String.class)
+            @NamedParam(value = "password", type = String.class)
+            @NamedParam(value = "cacheNamedQueries", type = Boolean.class)
+            @NamedParam(value = "cacheStatements", type = Boolean.class)
+            @NamedParam(value = "enableNamedQueries", type = Boolean.class)
+            @NamedParam(value = "resultSetConcurrency", type = Integer.class)
+            @NamedParam(value = "resultSetHoldability", type = Integer.class)
+            @NamedParam(value = "resultSetType", type = Integer.class)
+            // TODO below will be deleted once we fix type checker to understand
+            // readonly Map otherwise seen as Map<String, Serializable>
+            @NamedParam(value = "unused", type = Object.class)
+            Map<String, Object> args,
+            Closure c) throws SQLException, ClassNotFoundException {
+        try (Sql sql = newInstance(args)) {
             c.call(sql);
-        } finally {
-            if (sql != null) sql.close();
         }
     }
 
@@ -885,7 +883,7 @@ public class Sql {
      * def fieldName = 'firstname'
      * def fieldOp = Sql.expand('like')
      * def fieldVal = '%a%'
-     * sql.query "select * from PERSON where ${Sql.expand(fieldName)} $fieldOp ${fieldVal}", { ResultSet rs ->
+     * sql.query "select * from PERSON where ${Sql.expand(fieldName)} $fieldOp ${fieldVal}", { ResultSet rs {@code ->}
      *     while (rs.next()) println rs.getString('firstname')
      * }
      * // query will be 'select * from PERSON where firstname like ?'
@@ -956,11 +954,11 @@ public class Sql {
      * <p>
      * Example usages:
      * <pre>
-     * sql.query("select * from PERSON where firstname like 'S%'") { ResultSet rs ->
+     * sql.query("select * from PERSON where firstname like 'S%'") { ResultSet rs {@code ->}
      *     while (rs.next()) println rs.getString('firstname') + ' ' + rs.getString(3)
      * }
      *
-     * sql.query("call get_people_places()") { ResultSet rs ->
+     * sql.query("call get_people_places()") { ResultSet rs {@code ->}
      *     while (rs.next()) println rs.toRowResult().firstname
      * }
      * </pre>
@@ -996,7 +994,7 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * sql.query('select * from PERSON where lastname like ?', ['%a%']) { ResultSet rs ->
+     * sql.query('select * from PERSON where lastname like ?', ['%a%']) { ResultSet rs {@code ->}
      *     while (rs.next()) println rs.getString('lastname')
      * }
      * </pre>
@@ -1071,7 +1069,7 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * sql.query "select * from PERSON where location_id < $location", { ResultSet rs ->
+     * sql.query "select * from PERSON where location_id {@code <} $location", { ResultSet rs {@code ->}
      *     while (rs.next()) println rs.getString('firstname')
      * }
      * </pre>
@@ -1097,7 +1095,7 @@ public class Sql {
      * <p>
      * Example usages:
      * <pre>
-     * sql.eachRow("select * from PERSON where firstname like 'S%'") { row ->
+     * sql.eachRow("select * from PERSON where firstname like 'S%'") { row {@code ->}
      *    println "$row.firstname ${row[2]}}"
      * }
      *
@@ -1154,13 +1152,13 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * def printColNames = { meta ->
+     * def printColNames = { meta {@code ->}
      *     (1..meta.columnCount).each {
      *         print meta.getColumnLabel(it).padRight(20)
      *     }
      *     println()
      * }
-     * def printRow = { row ->
+     * def printRow = { row {@code ->}
      *     row.toRowResult().values().each{ print it.toString().padRight(20) }
      *     println()
      * }
@@ -1346,13 +1344,13 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * def printColNames = { meta ->
+     * def printColNames = { meta {@code ->}
      *     (1..meta.columnCount).each {
      *         print meta.getColumnLabel(it).padRight(20)
      *     }
      *     println()
      * }
-     * def printRow = { row ->
+     * def printRow = { row {@code ->}
      *     row.toRowResult().values().each{ print it.toString().padRight(20) }
      *     println()
      * }
@@ -1418,7 +1416,7 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * sql.eachRow("select * from PERSON where lastname like ?", ['%a%']) { row ->
+     * sql.eachRow("select * from PERSON where lastname like ?", ['%a%']) { row {@code ->}
      *     println "${row[1]} $row.lastname"
      * }
      * </pre>
@@ -1539,17 +1537,17 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * def printColNames = { meta ->
+     * def printColNames = { meta {@code ->}
      *     (1..meta.columnCount).each {
      *         print meta.getColumnLabel(it).padRight(20)
      *     }
      *     println()
      * }
-     * def printRow = { row ->
+     * def printRow = { row {@code ->}
      *     row.toRowResult().values().each{ print it.toString().padRight(20) }
      *     println()
      * }
-     * sql.eachRow("select * from PERSON where location_id < $location", printColNames, printRow)
+     * sql.eachRow("select * from PERSON where location_id {@code <} $location", printColNames, printRow)
      * </pre>
      * <p>
      * Resource handling is performed automatically where appropriate.
@@ -1638,7 +1636,7 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * sql.eachRow("select * from PERSON where location_id < $location") { row ->
+     * sql.eachRow("select * from PERSON where location_id {@code <} $location") { row {@code ->}
      *     println row.firstname
      * }
      * </pre>
@@ -1706,7 +1704,7 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * def printNumCols = { meta -> println "Found $meta.columnCount columns" }
+     * def printNumCols = { meta {@code ->} println "Found $meta.columnCount columns" }
      * def ans = sql.rows("select * from PERSON", printNumCols)
      * println "Found ${ans.size()} rows"
      * </pre>
@@ -1908,7 +1906,7 @@ public class Sql {
      * <p>
      * Example usage:
      * <pre>
-     * def printNumCols = { meta -> println "Found $meta.columnCount columns" }
+     * def printNumCols = { meta {@code ->} println "Found $meta.columnCount columns" }
      * def ans = sql.rows("select * from PERSON where lastname like ?", ['%a%'], printNumCols)
      * println "Found ${ans.size()} rows"
      * </pre>
@@ -1916,7 +1914,7 @@ public class Sql {
      * This method supports named and named ordinal parameters by supplying such
      * parameters in the <code>params</code> list. Here is an example:
      * <pre>
-     * def printNumCols = { meta -> println "Found $meta.columnCount columns" }
+     * def printNumCols = { meta {@code ->} println "Found $meta.columnCount columns" }
      *
      * def mapParam = [foo: 'Smith']
      * def domainParam = new MyDomainClass(bar: 'John')
@@ -2085,7 +2083,7 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * def ans = sql.rows("select * from PERSON where location_id < $location")
+     * def ans = sql.rows("select * from PERSON where location_id {@code <} $location")
      * println "Found ${ans.size()} rows"
      * </pre>
      * <p>
@@ -2109,8 +2107,8 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * def printNumCols = { meta -> println "Found $meta.columnCount columns" }
-     * def ans = sql.rows("select * from PERSON where location_id < $location", printNumCols)
+     * def printNumCols = { meta {@code ->} println "Found $meta.columnCount columns" }
+     * def ans = sql.rows("select * from PERSON where location_id {@code <} $location", printNumCols)
      * println "Found ${ans.size()} rows"
      * </pre>
      * <p>
@@ -2197,7 +2195,7 @@ public class Sql {
      * Example usage:
      * <pre>
      * def location = 25
-     * def ans = sql.firstRow("select * from PERSON where location_id < $location")
+     * def ans = sql.firstRow("select * from PERSON where location_id {@code <} $location")
      * println ans.firstname
      * </pre>
      * <p>
@@ -2346,12 +2344,12 @@ public class Sql {
      * Example usages:
      * <pre>
      * boolean first = true
-     * sql.execute "{call FindAllByFirst('J')}", { isResultSet, result ->
+     * sql.execute "{call FindAllByFirst('J')}", { isResultSet, result {@code ->}
      *   if (first) {
      *     first = false
-     *     assert !isResultSet && result == 0
+     *     assert !isResultSet {@code &&} result == 0
      *   } else {
-     *     assert isResultSet && result == [[ID:1, FIRSTNAME:'James', LASTNAME:'Strachan'], [ID:4, FIRSTNAME:'Jean', LASTNAME:'Gabin']]
+     *     assert isResultSet {@code &&} result == [[ID:1, FIRSTNAME:'James', LASTNAME:'Strachan'], [ID:4, FIRSTNAME:'Jean', LASTNAME:'Gabin']]
      *   }
      * }
      * </pre>
@@ -3113,7 +3111,7 @@ public class Sql {
      * </pre>
      * we can now call the stored procedure as follows:
      * <pre>
-     * sql.call '{call Hemisphere(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells ->
+     * sql.call '{call Hemisphere(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3155,7 +3153,7 @@ public class Sql {
      * </pre>
      * and here is how you access the stored function for all databases:
      * <pre>
-     * sql.call("{? = call FullName(?)}", [Sql.VARCHAR, 'Sam']) { name ->
+     * sql.call("{? = call FullName(?)}", [Sql.VARCHAR, 'Sam']) { name {@code ->}
      *     assert name == 'Sam Pullara'
      * }
      * </pre>
@@ -3181,7 +3179,7 @@ public class Sql {
      * <pre>
      * def first = 'Scott'
      * def last = 'Davis'
-     * sql.call "{call Hemisphere($first, $last, ${Sql.VARCHAR})}", { dwells ->
+     * sql.call "{call Hemisphere($first, $last, ${Sql.VARCHAR})}", { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3191,7 +3189,7 @@ public class Sql {
      * Once created, it can be called like this:
      * <pre>
      * def first = 'Sam'
-     * sql.call("{$Sql.VARCHAR = call FullName($first)}") { name ->
+     * sql.call("{$Sql.VARCHAR = call FullName($first)}") { name {@code ->}
      *     assert name == 'Sam Pullara'
      * }
      * </pre>
@@ -3222,7 +3220,7 @@ public class Sql {
      * <pre>
      * def first = 'Jeff'
      * def last = 'Sheets'
-     * def rows = sql.callWithRows "{call Hemisphere2($first, $last, ${Sql.VARCHAR})}", { dwells ->
+     * def rows = sql.callWithRows "{call Hemisphere2($first, $last, ${Sql.VARCHAR})}", { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3251,7 +3249,7 @@ public class Sql {
      * <p>
      * Once created, the stored procedure can be called like this:
      * <pre>
-     * def rows = sql.callWithRows '{call Hemisphere2(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells ->
+     * def rows = sql.callWithRows '{call Hemisphere2(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3281,7 +3279,7 @@ public class Sql {
      * <pre>
      * def first = 'Jeff'
      * def last = 'Sheets'
-     * def rowsList = sql.callWithAllRows "{call Hemisphere2($first, $last, ${Sql.VARCHAR})}", { dwells ->
+     * def rowsList = sql.callWithAllRows "{call Hemisphere2($first, $last, ${Sql.VARCHAR})}", { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3310,7 +3308,7 @@ public class Sql {
      * <p>
      * Once created, the stored procedure can be called like this:
      * <pre>
-     * def rowsList = sql.callWithAllRows '{call Hemisphere2(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells ->
+     * def rowsList = sql.callWithAllRows '{call Hemisphere2(?, ?, ?)}', ['Guillaume', 'Laforge', Sql.VARCHAR], { dwells {@code ->}
      *     println dwells
      * }
      * </pre>
@@ -3414,6 +3412,7 @@ public class Sql {
      * the connection. If this SQL object was created from a DataSource then
      * this method only frees any cached objects (statements in particular).
      */
+    @Override
     public void close() {
         namedParamSqlCache.clear();
         namedParamIndexPropCache.clear();
@@ -3502,7 +3501,7 @@ public class Sql {
      * configured using this closure. The statement being configured is passed into the closure
      * as its single argument, e.g.:
      * <pre>
-     * sql.withStatement{ stmt -> stmt.maxRows = 10 }
+     * sql.withStatement{ stmt {@code ->} stmt.maxRows = 10 }
      * def firstTenRows = sql.rows("select * from table")
      * </pre>
      *
@@ -3577,13 +3576,7 @@ public class Sql {
             connection.setAutoCommit(false);
             callClosurePossiblyWithConnection(closure, connection);
             connection.commit();
-        } catch (SQLException e) {
-            handleError(connection, e);
-            throw e;
-        } catch (RuntimeException e) {
-            handleError(connection, e);
-            throw e;
-        } catch (Error e) {
+        } catch (SQLException | Error | RuntimeException e) {
             handleError(connection, e);
             throw e;
         } catch (Exception e) {
@@ -3631,7 +3624,7 @@ public class Sql {
      * <p>
      * Use it like this:
      * <pre>
-     * def updateCounts = sql.withBatch { stmt ->
+     * def updateCounts = sql.withBatch { stmt {@code ->}
      *     stmt.addBatch("insert into TABLENAME ...")
      *     stmt.addBatch("insert into TABLENAME ...")
      *     stmt.addBatch("insert into TABLENAME ...")
@@ -3675,7 +3668,7 @@ public class Sql {
      * <p>
      * Use it like this for batchSize of 20:
      * <pre>
-     * def updateCounts = sql.withBatch(20) { stmt ->
+     * def updateCounts = sql.withBatch(20) { stmt {@code ->}
      *     stmt.addBatch("insert into TABLENAME ...")
      *     stmt.addBatch("insert into TABLENAME ...")
      *     stmt.addBatch("insert into TABLENAME ...")
@@ -3739,7 +3732,7 @@ public class Sql {
      * <p>
      * An example:
      * <pre>
-     * def updateCounts = sql.withBatch('insert into TABLENAME(a, b, c) values (?, ?, ?)') { ps ->
+     * def updateCounts = sql.withBatch('insert into TABLENAME(a, b, c) values (?, ?, ?)') { ps {@code ->}
      *     ps.addBatch([10, 12, 5])
      *     ps.addBatch([7, 3, 98])
      *     ps.addBatch(22, 67, 11)
@@ -3789,7 +3782,7 @@ public class Sql {
      * <p>
      * Below is an example using a batchSize of 20:
      * <pre>
-     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (?, ?, ?)') { ps ->
+     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (?, ?, ?)') { ps {@code ->}
      *     ps.addBatch(10, 12, 5)      // varargs style
      *     ps.addBatch([7, 3, 98])     // list
      *     ps.addBatch([22, 67, 11])
@@ -3798,7 +3791,7 @@ public class Sql {
      * </pre>
      * Named parameters (into maps or domain objects) are also supported:
      * <pre>
-     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (:foo, :bar, :baz)') { ps ->
+     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (:foo, :bar, :baz)') { ps {@code ->}
      *     ps.addBatch([foo:10, bar:12, baz:5])  // map
      *     ps.addBatch(foo:7, bar:3, baz:98)     // Groovy named args allow outer brackets to be dropped
      *     ...
@@ -3806,7 +3799,7 @@ public class Sql {
      * </pre>
      * Named ordinal parameters (into maps or domain objects) are also supported:
      * <pre>
-     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (?1.foo, ?2.bar, ?2.baz)') { ps ->
+     * def updateCounts = sql.withBatch(20, 'insert into TABLENAME(a, b, c) values (?1.foo, ?2.bar, ?2.baz)') { ps {@code ->}
      *     ps.addBatch([[foo:22], [bar:67, baz:11]])  // list of maps or domain objects
      *     ps.addBatch([foo:10], [bar:12, baz:5])     // varargs allows outer brackets to be dropped
      *     ps.addBatch([foo:7], [bar:3, baz:98])
@@ -3814,7 +3807,7 @@ public class Sql {
      * }
      * // swap to batch size of 5 and illustrate simple and domain object cases ...
      * class Person { String first, last }
-     * def updateCounts2 = sql.withBatch(5, 'insert into PERSON(id, first, last) values (?1, ?2.first, ?2.last)') { ps ->
+     * def updateCounts2 = sql.withBatch(5, 'insert into PERSON(id, first, last) values (?1, ?2.first, ?2.last)') { ps {@code ->}
      *     ps.addBatch(1, new Person(first:'Peter', last:'Pan'))
      *     ps.addBatch(2, new Person(first:'Snow', last:'White'))
      *     ...
@@ -4589,7 +4582,7 @@ public class Sql {
         @Override
         protected PreparedStatement execute(Connection connection, String sql) throws SQLException {
             if (returnGeneratedKeys == USE_COLUMN_NAMES && keyColumnNames != null) {
-                return connection.prepareStatement(sql, keyColumnNames.toArray(new String[0]));
+                return connection.prepareStatement(sql, keyColumnNames.toArray(EMPTY_STRING_ARRAY));
             }
             if (returnGeneratedKeys != 0) {
                 return connection.prepareStatement(sql, returnGeneratedKeys);

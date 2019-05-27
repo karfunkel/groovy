@@ -113,7 +113,7 @@ ext.allManifest = manifest {
             'Bundle-ClassPath': '.',
             'Eclipse-BuddyPolicy': 'dependent',
             'DynamicImport-Package': '*',
-            'Main-class': 'groovy.ui.GroovyMain')
+            'Main-Class': 'groovy.ui.GroovyMain')
 }
 
 ext.groovyOsgiManifest = {
@@ -128,6 +128,7 @@ ext.groovyOsgiManifest = {
     version = groovyBundleVersion
     instruction '-nouses', 'true'
     instruction 'Export-Package', "*;version=${groovyBundleVersion}"
+    instruction 'Eclipse-ExtensibleAPI', 'true'
     classpath = sourceSets.main.runtimeClasspath
 }
 
@@ -135,7 +136,7 @@ ext.subprojectOsgiManifest = {
     // Exclude attributes not needed for subprojects.
     from(allManifest) {
         eachEntry { details ->
-            if (details.key in [*excludedFromManifest, 'Bnd-LastModified', 'Extension-Name', 'Bundle-Name', 'Bundle-Description', 'Main-class']) {
+            if (details.key in [*excludedFromManifest, 'Bnd-LastModified', 'Extension-Name', 'Bundle-Name', 'Bundle-Description', 'Main-Class']) {
                 details.exclude()
             }
         }
@@ -143,6 +144,17 @@ ext.subprojectOsgiManifest = {
     version = groovyBundleVersion
     instruction '-nouses', 'true'
     instruction 'Export-Package', "*;version=${groovyBundleVersion}"
+    def folder = new File( "${projectDir}/subprojects/${symbolicName}/src/main/resources/META-INF/services" )
+    if( folder.exists() ) {
+        if (folder.listFiles().count { it.name ==~ /^(?!(org.codehaus.groovy.transform.ASTTransformation)$).*$/ } > 0) {
+            instruction 'Require-Capability', 'osgi.extender;filter:="(osgi.extender=osgi.serviceloader.registrar)"'
+            instruction 'Require-Capability', 'osgi.extender;filter:="(osgi.extender=osgi.serviceloader.processor)"'
+            folder.eachFileMatch(~/^(?!(org.codehaus.groovy.transform.ASTTransformation)$).*$/) {
+                instruction 'Require-Capability', "osgi.serviceloader;filter:=\"(osgi.serviceloader=${it.name})\";cardinality:=multiple"
+                instruction 'Provide-Capability', "osgi.serviceloader;osgi.serviceloader=\"${it.name}\""
+            }
+        }
+    }
     classpath = sourceSets.main.runtimeClasspath
 }
 
@@ -212,10 +224,10 @@ allprojects {
                     'groovy/cli/picocli/OptionAccessor*.class'
             ]
             patterns = [
-                    'antlr.**'                 : 'groovyjarjarantlr.@1', // antlr2
-                    'org.antlr.**'             : 'groovyjarjarantlr4.@1', // antlr4
-                    'org.objectweb.**'         : 'groovyjarjarasm.@1',
-                    'picocli.**'               : 'groovyjarjarpicocli.@1'
+                    'antlr.**': 'groovyjarjarantlr.@1', // antlr2
+                    'org.antlr.**': 'groovyjarjarantlr4.@1', // antlr4
+                    'org.objectweb.**': 'groovyjarjarasm.@1',
+                    'picocli.**': 'groovyjarjarpicocli.@1'
             ]
             excludesPerLibrary = [
                     '*': ['META-INF/maven/**', 'META-INF/*', 'META-INF/services/javax.annotation.processing.Processor', 'module-info.class']
@@ -264,12 +276,12 @@ allprojects {
             patterns = [
                     'com.googlecode.openbeans.**': 'groovyjarjaropenbeans.@1',
                     'org.apache.harmony.beans.**': 'groovyjarjarharmonybeans.@1',
-                    'java.beans.**'              : 'groovyjarjaropenbeans.@1'
+                    'java.beans.**': 'groovyjarjaropenbeans.@1'
             ]
             excludesPerLibrary = [
                     '*': ['META-INF/NOTICE']
             ]
-            excludes = ['META-INF/NOTICE','META-INF/INDEX.LIST']
+            excludes = ['META-INF/NOTICE', 'META-INF/INDEX.LIST']
             createManifest = false
             includedResources = [
                     ("$rootProject.projectDir/notices/${isRoot ? 'NOTICE-GROOIDJARJAR' : 'NOTICE-GROOID'}".toString()): 'META-INF/NOTICE'
@@ -340,6 +352,8 @@ task groovydocAllJar(type: Jar, dependsOn: groovydocAll) {
     classifier = 'groovydoc'
 }
 
+evaluationDependsOn('groovy-jaxb')
+
 ext.distSpec = copySpec {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from("$projectDir/licenses/LICENSE-BINZIP")
@@ -373,6 +387,10 @@ ext.distSpec = copySpec {
             }
         }
     }
+    into('lib/extras-jaxb') {
+        from project(':groovy-jaxb').configurations.jaxb
+        from project(':groovy-jaxb').configurations.jaxbRuntime
+    }
     if (!rootProject.hasProperty('skipIndy')) {
         into('indy') {
             from jarjarWithIndy
@@ -398,7 +416,7 @@ ext.distSpec = copySpec {
             fileMode = 0755
             exclude 'groovy.icns'
         }
-        from('src/tools/org/codehaus/groovy/tools/groovy.ico')
+        from('subprojects/groovy-docgenerator/src/main/resources/org/apache/groovy/docgenerator/groovy.ico')
     }
     into('licenses') {
         from 'licenses'
@@ -533,21 +551,20 @@ task updateLicenses {
         def jarjarFiles = fileTree(licensesDir).include('*-JARJAR*.txt').sort { it.name }
         def binzipFiles = fileTree(licensesDir) {
             include '*-JARJAR*.txt'
-            include '*-ALLJARJAR*.txt'
             include '*-BINZIP*.txt'
         }.sort { it.name }
         def docgeneratorFiles = fileTree(licensesDir).include('normalize-stylesheet-groovy-docgenerator.txt')
         def groovydocFiles = fileTree(licensesDir).include('normalize-stylesheet-groovy-groovydoc.txt')
-        def jsr223Files = fileTree(licensesDir).include('jsr223-ALLJARJAR-SRC.txt')
+        def jsr223Files = fileTree(licensesDir).include('jsr223-BINZIP-SRC.txt')
         def licenseHdr = '\n\n------------------------------------------------------------------------\n\n'
         [
-                (licenseBinZipFile)      : binzipFiles,
-                (licenseDocFile)         : docFiles,
-                (licenseJarJarFile)      : jarjarFiles,
-                (licenseSrcFile)         : srcFiles,
+                (licenseBinZipFile): binzipFiles,
+                (licenseDocFile): docFiles,
+                (licenseJarJarFile): jarjarFiles,
+                (licenseSrcFile): srcFiles,
                 (licenseDocGeneratorFile): docgeneratorFiles,
-                (licenseGroovyDocFile)   : groovydocFiles,
-                (licenseJsr223File)      : jsr223Files,
+                (licenseGroovyDocFile): groovydocFiles,
+                (licenseJsr223File): jsr223Files,
         ].each { outFile, inFiles ->
             file(outFile).withWriter('utf-8') { writer ->
                 writer << ([file(licenseBaseFile)] + inFiles).collect {
@@ -572,14 +589,13 @@ task updateNotices {
 
     ext.noticeSrcFile = "${projectDir}/NOTICE"
     ext.noticeGroovyConsoleFile = "${projectDir}/subprojects/groovy-console/NOTICE"
-    ext.noticeAllJarJarFile = "${noticesDir}/NOTICE-ALLJARJAR"
     ext.noticeBinZipFile = "${noticesDir}/NOTICE-BINZIP"
     ext.noticeGrooidFile = "${noticesDir}/NOTICE-GROOID"
     ext.noticeGrooidJarJarFile = "${noticesDir}/NOTICE-GROOIDJARJAR"
     ext.noticeJarJarFile = "${noticesDir}/NOTICE-JARJAR"
     ext.noticeSdkFile = "${noticesDir}/NOTICE-SDK"
     inputs.files(noticeBaseFile, fileTree(noticesDir).include('*.txt'))
-    outputs.files(noticeAllJarJarFile, noticeBinZipFile, noticeGrooidFile, noticeGrooidJarJarFile,
+    outputs.files(noticeBinZipFile, noticeGrooidFile, noticeGrooidJarJarFile,
             noticeJarJarFile, noticeSrcFile, noticeGroovyConsoleFile, noticeSdkFile)
 
     doLast {
@@ -592,17 +608,16 @@ task updateNotices {
         }.sort { it.name }
         def binzipFiles = fileTree(noticesDir) {
             include '*-JARJAR*.txt'
-            include '*-ALLJARJAR*.txt'
             include '*-GROOID*.txt'
             include '*-BINZIP*.txt'
         }.sort { it.name }
-        def groovyconsoleFiles = fileTree(noticesDir).include('silkicons-ALLJARJAR-SRC.txt')
+        def groovyconsoleFiles = fileTree(noticesDir).include('silkicons-BINZIP-SRC.txt')
         [
-                (noticeBinZipFile)       : binzipFiles,
-                (noticeGrooidFile)       : grooidFiles,
-                (noticeGrooidJarJarFile) : grooidJarjarFiles,
-                (noticeJarJarFile)       : jarjarFiles,
-                (noticeSrcFile)          : srcFiles,
+                (noticeBinZipFile): binzipFiles,
+                (noticeGrooidFile): grooidFiles,
+                (noticeGrooidJarJarFile): grooidJarjarFiles,
+                (noticeJarJarFile): jarjarFiles,
+                (noticeSrcFile): srcFiles,
                 (noticeGroovyConsoleFile): groovyconsoleFiles,
         ].each { outFile, inFiles ->
             file(outFile).withWriter('utf-8') { writer ->

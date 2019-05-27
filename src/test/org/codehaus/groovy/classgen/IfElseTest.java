@@ -29,9 +29,6 @@ import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.syntax.Token;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class IfElseTest extends TestSupport {
 
     public void testLoop() throws Exception {
@@ -65,7 +62,7 @@ public class IfElseTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Managed to create bean", bean != null);
 
         assertSetProperty(bean, "bar", "abc");

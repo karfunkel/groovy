@@ -30,8 +30,6 @@ import org.codehaus.groovy.ast.tools.WideningCategories
 
 /**
  * Unit tests for static type checking : type inference.
- *
- * @author Cedric Champeau
  */
 class TypeInferenceSTCTest extends StaticTypeCheckingTestCase {
 
@@ -425,7 +423,9 @@ class TypeInferenceSTCTest extends StaticTypeCheckingTestCase {
         '''
         def inft = method.code.statements[0].expression.leftExpression.getNodeMetaData(StaticTypesMarker.DECLARATION_INFERRED_TYPE)
         assert inft instanceof WideningCategories.LowestUpperBoundClassNode
-        assert inft.interfaces as Set == [ClassHelper.make(Comparable), ClassHelper.make(Serializable)] as Set
+        [Comparable, Serializable].each {
+            assert ClassHelper.make(it) in inft.interfaces
+        }
 
         assertScript '''
             void method() {
@@ -769,14 +769,46 @@ Thing.run()
     // GROOVY-6574
     void testShouldInferPrimitiveBoolean() {
         assertScript '''
-def foo(Boolean o) {
-  @ASTTest(phase=INSTRUCTION_SELECTION,value={
-    assert node.getNodeMetaData(INFERRED_TYPE) == boolean_TYPE
-  })
-  boolean b = o
-  println b
-}
+            def foo(Boolean o) {
+                @ASTTest(phase=INSTRUCTION_SELECTION,value={
+                    assert node.getNodeMetaData(INFERRED_TYPE) == boolean_TYPE
+                })
+                boolean b = o
+                println b
+            }
+        '''
+    }
+
+    // GROOVY-9077
+    void testInferredTypeForPropertyThatResolvesToMethod() {
+        assertScript '''
+            import groovy.transform.*
+            import static org.codehaus.groovy.transform.stc.StaticTypesMarker.DIRECT_METHOD_CALL_TARGET
+
+            @CompileStatic
+            void meth() {
+                def items = [1, 2] as LinkedList
+
+                @ASTTest(phase=INSTRUCTION_SELECTION, value={
+                    node = node.rightExpression
+                    assert node.class.name.contains('PropertyExpression')
+                    def target = node.getNodeMetaData(DIRECT_METHOD_CALL_TARGET)
+                    assert target != null
+                    assert target.declaringClass.name == 'java.util.LinkedList'
+                })
+                def one = items.first
+
+                @ASTTest(phase=CLASS_GENERATION, value={
+                    node = node.rightExpression
+                    assert node.class.name.contains('MethodCallExpression')
+                    def target = node.getNodeMetaData(DIRECT_METHOD_CALL_TARGET)
+                    assert target != null
+                    assert target.declaringClass.name == 'java.util.LinkedList'
+                })
+                def alsoOne = items.peek()
+            }
+
+            meth()
 '''
     }
 }
-

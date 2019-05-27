@@ -32,9 +32,8 @@ import java.util.Map;
  *
  * As this class represents a GPath expression with no results, all methods
  * are either NOPs or return an empty result.
- *
- * @author John Wilson
  */
+@Deprecated
 public class NoChildren extends GPathResult {
 
     /**

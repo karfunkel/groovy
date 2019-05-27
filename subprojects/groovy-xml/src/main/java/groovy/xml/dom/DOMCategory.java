@@ -22,7 +22,7 @@ import groovy.lang.Closure;
 import groovy.lang.GroovyRuntimeException;
 import groovy.lang.IntRange;
 import groovy.xml.DOMBuilder;
-import groovy.xml.QName;
+import groovy.namespace.QName;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.runtime.XmlGroovyMethods;
 import org.w3c.dom.Attr;
@@ -45,9 +45,6 @@ import java.util.Map;
 
 /**
  * Category class which adds GPath style operations to Java's DOM classes.
- *
- * @author sam
- * @author paulk
  */
 public class DOMCategory {
     private static boolean trimWhitespace = false;

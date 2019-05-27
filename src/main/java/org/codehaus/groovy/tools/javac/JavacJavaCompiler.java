@@ -27,64 +27,97 @@ import org.codehaus.groovy.control.messages.ExceptionMessage;
 import org.codehaus.groovy.control.messages.SimpleMessage;
 import org.codehaus.groovy.runtime.DefaultGroovyMethods;
 
+import javax.tools.JavaCompiler.CompilationTask;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 import java.io.File;
-import java.io.PrintWriter;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.Charset;
 import java.security.AccessController;
 import java.security.CodeSource;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class JavacJavaCompiler implements JavaCompiler {
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final Locale DEFAULT_LOCALE = Locale.ENGLISH;
     private final CompilerConfiguration config;
+    private final Charset charset;
 
     public JavacJavaCompiler(CompilerConfiguration config) {
         this.config = config;
+        this.charset = Charset.forName(config.getSourceEncoding());
     }
 
     public void compile(List<String> files, CompilationUnit cu) {
-        String[] javacParameters = makeParameters(files, cu.getClassLoader());
-        StringBuilderWriter javacOutput = null;
+        String[] javacParameters = makeParameters(cu.getClassLoader());
+        StringBuilderWriter javacOutput = new StringBuilderWriter();
         int javacReturnValue = 0;
         try {
-            Class javac = findJavac(cu);
-            Method method = null;
             try {
-                method = javac.getMethod("compile", String[].class, PrintWriter.class);
-                javacOutput = new StringBuilderWriter();
-                PrintWriter writer = new PrintWriter(javacOutput);
-                Object ret = method.invoke(null, javacParameters, writer);
-                javacReturnValue = (Integer) ret;
-            } catch (NoSuchMethodException e) { }
-            if (method == null) {
-                method = javac.getMethod("compile", String[].class);
-                Object ret = method.invoke(null, new Object[]{javacParameters});
-                javacReturnValue = (Integer) ret;
+                boolean successful = doCompileWithSystemJavaCompiler(cu, files, javacParameters, javacOutput);
+                if (!successful) {
+                    javacReturnValue = 1;
+                }
+            } catch (IllegalArgumentException e) {
+                javacReturnValue = 2; // any of the options are invalid
+                cu.getErrorCollector().addFatalError(new ExceptionMessage(e, true, cu));
+            } catch (IOException e) {
+                javacReturnValue = 1;
+                cu.getErrorCollector().addFatalError(new ExceptionMessage(e, true, cu));
             }
-        } catch (InvocationTargetException ite) {
-            cu.getErrorCollector().addFatalError(new ExceptionMessage((Exception) ite.getCause(), true, cu));
+
         } catch (Exception e) {
             cu.getErrorCollector().addFatalError(new ExceptionMessage(e, true, cu));
         }
+
         if (javacReturnValue != 0) {
             switch (javacReturnValue) {
                 case 1: addJavacError("Compile error during compilation with javac.", cu, javacOutput); break;
                 case 2: addJavacError("Invalid commandline usage for javac.", cu, javacOutput); break;
-                case 3: addJavacError("System error during compilation with javac.", cu, javacOutput); break;
-                case 4: addJavacError("Abnormal termination of javac.", cu, javacOutput); break;
                 default: addJavacError("unexpected return value by javac.", cu, javacOutput); break;
             }
         } else {
             // print warnings if any
             System.out.print(javacOutput);
+        }
+    }
+
+    private boolean doCompileWithSystemJavaCompiler(CompilationUnit cu, List<String> files, String[] javacParameters, StringBuilderWriter javacOutput) throws IOException {
+        javax.tools.JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, DEFAULT_LOCALE, charset)) {
+            final Set<JavaFileObject> compilationUnitSet = cu.getJavaCompilationUnitSet(); // java stubs already added
+
+            // add java source files to compile
+            fileManager.getJavaFileObjectsFromFiles(
+                    files.stream()
+                            .map(File::new)
+                            .collect(Collectors.toList())
+            ).forEach(compilationUnitSet::add);
+
+            CompilationTask compilationTask = compiler.getTask(
+                    javacOutput,
+                    fileManager,
+                    null,
+                    Arrays.asList(javacParameters),
+                    Collections.emptyList(),
+                    compilationUnitSet
+            );
+            compilationTask.setLocale(DEFAULT_LOCALE);
+
+            return compilationTask.call();
         }
     }
 
@@ -100,7 +133,7 @@ public class JavacJavaCompiler implements JavaCompiler {
         cu.getErrorCollector().addFatalError(new SimpleMessage(header, cu));
     }
 
-    private String[] makeParameters(List<String> files, GroovyClassLoader parentClassLoader) {
+    private String[] makeParameters(GroovyClassLoader parentClassLoader) {
         Map options = config.getJointCompilationOptions();
         LinkedList<String> paras = new LinkedList<String>();
 
@@ -110,8 +143,6 @@ public class JavacJavaCompiler implements JavaCompiler {
         // defaults
         paras.add("-d");
         paras.add(target.getAbsolutePath());
-        paras.add("-sourcepath");
-        paras.add(((File) options.get("stubDir")).getAbsolutePath());
 
         // add flags
         String[] flags = (String[]) options.get("flags");
@@ -152,12 +183,10 @@ public class JavacJavaCompiler implements JavaCompiler {
             }
 
             try {
-                CodeSource codeSource =AccessController.doPrivileged(new PrivilegedAction<CodeSource>() {
-                    @Override
-                    public CodeSource run() {
-                        return GroovyObject.class.getProtectionDomain().getCodeSource();
-                    }
-                });
+                CodeSource codeSource =
+                        AccessController.doPrivileged(
+                                (PrivilegedAction<CodeSource>) () -> GroovyObject.class.getProtectionDomain().getCodeSource()
+                        );
                 if (codeSource != null) {
                     paths.add(new File(codeSource.getLocation().toURI()).getPath());
                 }
@@ -169,45 +198,7 @@ public class JavacJavaCompiler implements JavaCompiler {
             paras.add(DefaultGroovyMethods.join((Iterable) paths, File.pathSeparator));
         }
 
-        // files to compile
-        paras.addAll(files);
-
-        return paras.toArray(new String[0]);
+        return paras.toArray(EMPTY_STRING_ARRAY);
     }
 
-    private Class findJavac(CompilationUnit cu) throws ClassNotFoundException {
-        String main = "com.sun.tools.javac.Main";
-        try {
-            return Class.forName(main);
-        } catch (ClassNotFoundException e) {}
-
-        try {
-            ClassLoader cl = this.getClass().getClassLoader();
-            return cl.loadClass(main);
-        } catch (ClassNotFoundException e) {}
-
-        try {
-            return ClassLoader.getSystemClassLoader().loadClass(main);
-        } catch (ClassNotFoundException e) {}
-
-        try {
-            return cu.getClassLoader().getParent().loadClass(main);
-        } catch (ClassNotFoundException e3) {}
-
-
-        // couldn't find compiler - try to find tools.jar
-        // based on java.home setting
-        String javaHome = System.getProperty("java.home");
-        if (javaHome.toLowerCase(Locale.US).endsWith("jre")) {
-            javaHome = javaHome.substring(0, javaHome.length() - 4);
-        }
-        File toolsJar = new File((javaHome + "/lib/tools.jar"));
-        if (toolsJar.exists()) {
-            GroovyClassLoader loader = cu.getClassLoader();
-            loader.addClasspath(toolsJar.getAbsolutePath());
-            return loader.loadClass(main);
-        }
-
-        throw new ClassNotFoundException("unable to locate the java compiler com.sun.tools.javac.Main, please change your classloader settings");
-    }
 }

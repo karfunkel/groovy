@@ -20,9 +20,6 @@ package groovy.transform.stc
 
 /**
  * Unit tests for static type checking : closures.
- *
- * @author Cedric Champeau
- * @author Jochen Theodorou
  */
 class ClosuresSTCTest extends StaticTypeCheckingTestCase {
 
@@ -32,6 +29,22 @@ class ClosuresSTCTest extends StaticTypeCheckingTestCase {
 
         println "Executing the Closure:"
         clos() //prints "hello!"
+        '''
+    }
+
+    void testClosureWithoutArgumentsExplicit() {
+        // GROOVY-9079: no params to statically type check but shouldn't get NPE
+        assertScript '''
+            import groovy.transform.CompileStatic
+            import java.util.concurrent.Callable
+
+            @CompileStatic
+            String makeFoo() {
+                Callable<String> call = { -> 'foo' }
+                call()
+            }
+
+            assert makeFoo() == 'foo'
         '''
     }
 

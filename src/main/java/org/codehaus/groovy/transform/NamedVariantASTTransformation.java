@@ -47,6 +47,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedConstructor;
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedMethod;
 import static org.apache.groovy.ast.tools.ClassNodeUtils.isInnerClass;
 import static org.apache.groovy.ast.tools.VisibilityUtils.getVisibility;
 import static org.codehaus.groovy.ast.ClassHelper.STRING_TYPE;
@@ -89,6 +91,7 @@ public class NamedVariantASTTransformation extends AbstractASTTransformation {
             return;
         }
 
+        boolean autoDelegate = memberHasValue(anno, "autoDelegate", true);
         Parameter mapParam = param(GenericsUtils.nonGeneric(ClassHelper.MAP_TYPE), "__namedArgs");
         List<Parameter> genParams = new ArrayList<Parameter>();
         genParams.add(mapParam);
@@ -105,35 +108,15 @@ public class NamedVariantASTTransformation extends AbstractASTTransformation {
             }
         }
 
-        if (!annoFound) {
+        if (!annoFound && autoDelegate) {
             // assume the first param is the delegate by default
             processDelegateParam(mNode, mapParam, args, propNames, fromParams[0]);
         } else {
             for (Parameter fromParam : fromParams) {
-                if (AnnotatedNodeUtils.hasAnnotation(fromParam, NAMED_PARAM_TYPE)) {
-                    AnnotationNode namedParam = fromParam.getAnnotations(NAMED_PARAM_TYPE).get(0);
-                    boolean required = memberHasValue(namedParam, "required", true);
-                    if (getMemberValue(namedParam, "name") == null) {
-                        namedParam.addMember("value", constX(fromParam.getName()));
-                    }
-                    String name = getMemberStringValue(namedParam, "value");
-                    if (getMemberValue(namedParam, "type") == null) {
-                        namedParam.addMember("type", classX(fromParam.getType()));
-                    }
-                    if (hasDuplicates(mNode, propNames, name)) return;
-                    // TODO check specified type is assignable from declared param type?
-                    // ClassNode type = getMemberClassValue(namedParam, "type");
-                    if (required) {
-                        if (fromParam.hasInitialExpression()) {
-                            addError("Error during " + MY_TYPE_NAME + " processing. A required parameter can't have an initial value.", mNode);
-                            return;
-                        }
-                        inner.addStatement(new AssertStatement(boolX(callX(varX(mapParam), "containsKey", args(constX(name)))),
-                                plusX(new ConstantExpression("Missing required named argument '" + name + "'. Keys found: "), callX(varX(mapParam), "keySet"))));
-                    }
-                    args.addExpression(propX(varX(mapParam), name));
-                    mapParam.addAnnotation(namedParam);
-                    fromParam.getAnnotations().remove(namedParam);
+                if (!annoFound) {
+                    if (!processImplicitNamedParam(mNode, mapParam, args, propNames, fromParam)) return;
+                } else if (AnnotatedNodeUtils.hasAnnotation(fromParam, NAMED_PARAM_TYPE)) {
+                    if (!processExplicitNamedParam(mNode, mapParam, inner, args, propNames, fromParam)) return;
                 } else if (AnnotatedNodeUtils.hasAnnotation(fromParam, NAMED_DELEGATE_TYPE)) {
                     if (!processDelegateParam(mNode, mapParam, args, propNames, fromParam)) return;
                 } else {
@@ -143,47 +126,47 @@ public class NamedVariantASTTransformation extends AbstractASTTransformation {
                 }
             }
         }
-        Parameter namedArgKey = param(STRING_TYPE, "namedArgKey");
-        inner.addStatement(
-                new ForStatement(
-                        namedArgKey,
-                        callX(varX(mapParam), "keySet"),
-                        new AssertStatement(boolX(callX(list2args(propNames), "contains", varX(namedArgKey))),
-                                plusX(new ConstantExpression("Unrecognized namedArgKey: "), varX(namedArgKey)))
-                ));
+        createMapVariant(mNode, anno, mapParam, genParams, cNode, inner, args, propNames);
+    }
 
-        Parameter[] genParamsArray = genParams.toArray(Parameter.EMPTY_ARRAY);
-        // TODO account for default params giving multiple signatures
-        if (cNode.hasMethod(mNode.getName(), genParamsArray)) {
-            addError("Error during " + MY_TYPE_NAME + " processing. Class " + cNode.getNameWithoutPackage() +
-                    " already has a named-arg " + (mNode instanceof ConstructorNode ? "constructor" : "method") +
-                    " of type " + genParams, mNode);
-            return;
-        }
+    private boolean processImplicitNamedParam(MethodNode mNode, Parameter mapParam, ArgumentListExpression args, List<String> propNames, Parameter fromParam) {
+        boolean required = fromParam.hasInitialExpression();
+        String name = fromParam.getName();
+        if (hasDuplicates(mNode, propNames, name)) return false;
+        AnnotationNode namedParam = new AnnotationNode(NAMED_PARAM_TYPE);
+        namedParam.addMember("value", constX(name));
+        namedParam.addMember("type", classX(fromParam.getType()));
+        namedParam.addMember("required", constX(required, true));
+        mapParam.addAnnotation(namedParam);
+        args.addExpression(propX(varX(mapParam), name));
+        return true;
+    }
 
-        final BlockStatement body = new BlockStatement();
-        int modifiers = getVisibility(anno, mNode, mNode.getClass(), mNode.getModifiers());
-        if (mNode instanceof ConstructorNode) {
-            body.addStatement(stmt(ctorX(ClassNode.THIS, args)));
-            body.addStatement(inner);
-            cNode.addConstructor(
-                    modifiers,
-                    genParamsArray,
-                    mNode.getExceptions(),
-                    body
-            );
-        } else {
-            body.addStatement(inner);
-            body.addStatement(stmt(callThisX(mNode.getName(), args)));
-            cNode.addMethod(
-                    mNode.getName(),
-                    modifiers,
-                    mNode.getReturnType(),
-                    genParamsArray,
-                    mNode.getExceptions(),
-                    body
-            );
+    private boolean processExplicitNamedParam(MethodNode mNode, Parameter mapParam, BlockStatement inner, ArgumentListExpression args, List<String> propNames, Parameter fromParam) {
+        AnnotationNode namedParam = fromParam.getAnnotations(NAMED_PARAM_TYPE).get(0);
+        boolean required = memberHasValue(namedParam, "required", true);
+        if (getMemberStringValue(namedParam, "value") == null) {
+            namedParam.addMember("value", constX(fromParam.getName()));
         }
+        String name = getMemberStringValue(namedParam, "value");
+        if (getMemberValue(namedParam, "type") == null) {
+            namedParam.addMember("type", classX(fromParam.getType()));
+        }
+        if (hasDuplicates(mNode, propNames, name)) return false;
+        // TODO check specified type is assignable from declared param type?
+        // ClassNode type = getMemberClassValue(namedParam, "type");
+        if (required) {
+            if (fromParam.hasInitialExpression()) {
+                addError("Error during " + MY_TYPE_NAME + " processing. A required parameter can't have an initial value.", mNode);
+                return false;
+            }
+            inner.addStatement(new AssertStatement(boolX(callX(varX(mapParam), "containsKey", args(constX(name)))),
+                    plusX(new ConstantExpression("Missing required named argument '" + name + "'. Keys found: "), callX(varX(mapParam), "keySet"))));
+        }
+        args.addExpression(propX(varX(mapParam), name));
+        mapParam.addAnnotation(namedParam);
+        fromParam.getAnnotations().remove(namedParam);
+        return true;
     }
 
     private boolean processDelegateParam(MethodNode mNode, Parameter mapParam, ArgumentListExpression args, List<String> propNames, Parameter fromParam) {
@@ -220,5 +203,49 @@ public class NamedVariantASTTransformation extends AbstractASTTransformation {
         }
         propNames.add(next);
         return false;
+    }
+
+    private void createMapVariant(MethodNode mNode, AnnotationNode anno, Parameter mapParam, List<Parameter> genParams, ClassNode cNode, BlockStatement inner, ArgumentListExpression args, List<String> propNames) {
+        Parameter namedArgKey = param(STRING_TYPE, "namedArgKey");
+        inner.addStatement(
+                new ForStatement(
+                        namedArgKey,
+                        callX(varX(mapParam), "keySet"),
+                        new AssertStatement(boolX(callX(list2args(propNames), "contains", varX(namedArgKey))),
+                                plusX(new ConstantExpression("Unrecognized namedArgKey: "), varX(namedArgKey)))
+                ));
+
+        Parameter[] genParamsArray = genParams.toArray(Parameter.EMPTY_ARRAY);
+        // TODO account for default params giving multiple signatures
+        if (cNode.hasMethod(mNode.getName(), genParamsArray)) {
+            addError("Error during " + MY_TYPE_NAME + " processing. Class " + cNode.getNameWithoutPackage() +
+                    " already has a named-arg " + (mNode instanceof ConstructorNode ? "constructor" : "method") +
+                    " of type " + genParams, mNode);
+            return;
+        }
+
+        final BlockStatement body = new BlockStatement();
+        int modifiers = getVisibility(anno, mNode, mNode.getClass(), mNode.getModifiers());
+        if (mNode instanceof ConstructorNode) {
+            body.addStatement(stmt(ctorX(ClassNode.THIS, args)));
+            body.addStatement(inner);
+            addGeneratedConstructor(cNode,
+                    modifiers,
+                    genParamsArray,
+                    mNode.getExceptions(),
+                    body
+            );
+        } else {
+            body.addStatement(inner);
+            body.addStatement(stmt(callThisX(mNode.getName(), args)));
+            addGeneratedMethod(cNode,
+                    mNode.getName(),
+                    modifiers,
+                    mNode.getReturnType(),
+                    genParamsArray,
+                    mNode.getExceptions(),
+                    body
+            );
+        }
     }
 }

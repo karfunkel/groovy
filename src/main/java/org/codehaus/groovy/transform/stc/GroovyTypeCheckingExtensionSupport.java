@@ -58,7 +58,6 @@ import java.util.Map;
  * this class adds a number of utility methods aimed at leveraging the syntax of the Groovy language to improve
  * expressivity and conciseness.
  *
- * @author Cedric Champeau
  * @since 2.1.0
  */
 public class GroovyTypeCheckingExtensionSupport extends AbstractTypeCheckingExtension {
@@ -130,7 +129,7 @@ public class GroovyTypeCheckingExtensionSupport extends AbstractTypeCheckingExte
         try {
             Class<?> clazz = transformLoader.loadClass(scriptPath, false, true);
             if (TypeCheckingDSL.class.isAssignableFrom(clazz)) {
-                script = (TypeCheckingDSL) clazz.newInstance();
+                script = (TypeCheckingDSL) clazz.getDeclaredConstructor().newInstance();
             } else if (TypeCheckingExtension.class.isAssignableFrom(clazz)) {
                 // since 2.4, we can also register precompiled type checking extensions which are not scripts
                 try {
@@ -139,24 +138,18 @@ public class GroovyTypeCheckingExtensionSupport extends AbstractTypeCheckingExte
                     typeCheckingVisitor.addTypeCheckingExtension(extension);
                     extension.setup();
                     return;
-                } catch (InstantiationException e) {
-                    addLoadingError(config);
-                } catch (IllegalAccessException e) {
+                } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
                     addLoadingError(config);
                 } catch (NoSuchMethodException e) {
                     context.getErrorCollector().addFatalError(
                             new SimpleMessage("Static type checking extension '" + scriptPath + "' could not be loaded because it doesn't have a constructor accepting StaticTypeCheckingVisitor.",
                                     config.getDebug(), typeCheckingVisitor.getSourceUnit())
                     );
-                } catch (InvocationTargetException e) {
-                    addLoadingError(config);
                 }
             }
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
             // silent
-        } catch (InstantiationException e) {
-            addLoadingError(config);
-        } catch (IllegalAccessException e) {
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             addLoadingError(config);
         }
         if (script==null) {

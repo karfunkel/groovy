@@ -28,9 +28,6 @@ import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.syntax.Token;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class TupleListTest extends TestSupport {
 
     public void testIterateOverList() throws Exception {
@@ -67,7 +64,7 @@ public class TupleListTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Managed to create bean", bean != null);
 
         System.out.println("################ Now about to invoke method");

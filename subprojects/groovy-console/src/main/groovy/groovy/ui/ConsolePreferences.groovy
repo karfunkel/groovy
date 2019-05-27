@@ -25,6 +25,7 @@ import org.codehaus.groovy.tools.shell.util.MessageSource
 import javax.swing.*
 import java.awt.*
 
+@Deprecated
 class ConsolePreferences {
 
     // Default maximum number of characters to show on console at any time
@@ -36,6 +37,7 @@ class ConsolePreferences {
     private final MessageSource T
 
     private JDialog dialog
+    File outputFile
 
     ConsolePreferences(console) {
         this.console = console
@@ -63,14 +65,26 @@ class ConsolePreferences {
                 title: T['prefs.dialog.title'], owner: console.frame, modal: true
         ) {
             vbox {
-                hbox(border: titledBorder(T['prefs.output.settings.title'])) {
-                    label "${T['prefs.max.characters.output']}:"
+                vbox(border: titledBorder(T['prefs.output.settings.title'])) {
+                    hbox {
+                        label "${T['prefs.max.characters.output']}:"
 
-                    formattedTextField value: maxOutputChars, id: 'txtMaxOutputChars',
-                            text:
-                                    bind(target: this, targetProperty: 'maxOutputChars',
-                                            validator: this.&isInteger, converter: Integer.&parseInt),
-                            columns: 6
+                        formattedTextField value: maxOutputChars, id: 'txtMaxOutputChars',
+                                text:
+                                        bind(target: this, targetProperty: 'maxOutputChars',
+                                                validator: this.&isInteger, converter: Integer.&parseInt),
+                                columns: 6
+                    }
+
+                    hbox {
+                        checkBox T['prefs.output.file'], id: 'outputFileCheckBox', selected: false
+                        hglue()
+                        label T['prefs.output.file.name'], id: 'outputFileName',
+                                enabled: bind(source: outputFileCheckBox, sourceProperty: 'selected')
+                        button T['prefs.output.file.select'], id: 'outputFileNameButton',
+                                enabled: bind(source: outputFileCheckBox, sourceProperty: 'selected'),
+                                actionPerformed: this.&onChooseFile
+                    }
                 }
 
                 vglue()
@@ -80,10 +94,17 @@ class ConsolePreferences {
                     hglue()
                     button T['prefs.close'], id: 'closePrefsButton', actionPerformed: this.&onClose
                 }
+
             }
         }
 
-        console.swing.txtMaxOutputChars.maximumSize=new Dimension(Integer.MAX_VALUE, (int) console.swing.txtMaxOutputChars.preferredSize.height)
+        console.swing.txtMaxOutputChars.maximumSize = new Dimension(Integer.MAX_VALUE, (int) console.swing.txtMaxOutputChars.preferredSize.height)
+
+        def outputLogFileName = console.prefs.get('outputLogFileName', null)
+        if (outputLogFileName != null) {
+            console.swing.outputFileCheckBox.selected = true
+            console.swing.outputFileName.text = outputLogFileName
+        }
     }
 
     private boolean isInteger(value) {
@@ -106,7 +127,23 @@ class ConsolePreferences {
         if (maxOutputChars != console.maxOutputChars) {
             console.maxOutputChars = maxOutputChars
         }
+
+        console.setOutputPreferences(console.swing.outputFileCheckBox.enabled, outputFile)
+
         dialog.dispose()
+    }
+
+    private void onChooseFile(EventObject event) {
+        JFileChooser fileChooser = console.swing.fileChooser()
+
+        if (console.prefs.get('outputLogFileName', null) != null) {
+            fileChooser.setSelectedFile(new File(console.prefs.get('outputLogFileName', null)))
+        }
+
+        if (fileChooser.showOpenDialog(dialog) == JFileChooser.APPROVE_OPTION) {
+            outputFile = fileChooser.selectedFile
+        }
+        console.swing.outputFileName.text = outputFile.path
     }
 
     // Useful for testing gui

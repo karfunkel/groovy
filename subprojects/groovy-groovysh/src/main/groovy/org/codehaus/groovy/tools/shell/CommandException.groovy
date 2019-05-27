@@ -22,10 +22,9 @@ import groovy.transform.CompileStatic
 
 /**
  * Thrown to indicate a problem with command execution.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 @CompileStatic
+@Deprecated
 class CommandException
     extends Exception
 {

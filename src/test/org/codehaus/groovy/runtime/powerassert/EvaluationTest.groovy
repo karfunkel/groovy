@@ -24,13 +24,12 @@ import static AssertionTestUtil.*
 
 /**
  * Checks that:
- * - assertion transformation succeeds w/o compilation error (checked implicitely)
- * - assertion execution succeeds w/o runtime error (checked explicitely)
- * - assertion execution has the expected result (checked explicitely)
- *
- * @author Peter Niederwieser
+ * <ul>
+ * <li>assertion transformation succeeds w/o compilation error (checked implicitly)</li>
+ * <li>assertion execution succeeds w/o runtime error (checked explicitly)</li>
+ * <li>assertion execution has the expected result (checked explicitly)</li>
+ * </ul>
  */
-
 class EvaluationTest extends GroovyTestCase {
     void testPassingAndFailingAsserts() {
         assert true
@@ -157,7 +156,7 @@ class EvaluationTest extends GroovyTestCase {
     }
 
     void testPropertyExpression() {
-        assert [1,2,3].size == 3
+        assert 'A'.bytes == [65] as byte[]
         assert (new Properties().next.next.next.x = 10) == 10
         assert Integer.MIN_VALUE < Integer.MAX_VALUE
     }

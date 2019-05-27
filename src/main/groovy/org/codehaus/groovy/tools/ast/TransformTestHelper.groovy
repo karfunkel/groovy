@@ -18,6 +18,7 @@
  */
 package org.codehaus.groovy.tools.ast
 
+import groovy.transform.PackageScope
 import org.codehaus.groovy.ast.ClassNode
 import org.codehaus.groovy.classgen.GeneratorContext
 import org.codehaus.groovy.control.CompilationUnit
@@ -29,21 +30,19 @@ import org.codehaus.groovy.transform.ASTTransformation
 
 import java.security.CodeSource
 
-/*
-* This TestHarness exists so that a global transform can be run without
-* using the Jar services mechanism, which requires building a jar.
-* 
-* To use this simply create an instance of TransformTestHelper with
-* an ASTTransformation and CompilePhase, then invoke parse(File) or
-* parse(String). 
-* 
-* This test harness is not exactly the same as executing a global transformation
-* but can greatly aide in debugging and testing a transform. You should still
-* test your global transformation when packaged as a jar service before
-* releasing it. 
-* 
-* @author Hamlet D'Arcy
-*/
+/**
+ * This TestHarness exists so that a global transform can be run without
+ * using the Jar services mechanism, which requires building a jar.
+ *
+ * To use this simply create an instance of TransformTestHelper with
+ * an ASTTransformation and CompilePhase, then invoke parse(File) or
+ * parse(String).
+ *
+ * This test harness is not exactly the same as executing a global transformation
+ * but can greatly aide in debugging and testing a transform. You should still
+ * test your global transformation when packaged as a jar service before
+ * releasing it.
+ */
 class TransformTestHelper {
 
     private final ASTTransformation transform
@@ -56,38 +55,35 @@ class TransformTestHelper {
      * @param phase
      *      the phase to run the transform in 
      */
-    def TransformTestHelper(ASTTransformation transform, CompilePhase phase) {
+    TransformTestHelper(ASTTransformation transform, CompilePhase phase) {
         this.transform = transform
         this.phase = phase
     }
 
     /**
      * Compiles the File into a Class applying the transform specified in the constructor.
-     * @input input
-     *      must be a groovy source file
+     * @input input*      must be a groovy source file
      */
-    public Class parse(File input) {
+    Class parse(File input) {
         TestHarnessClassLoader loader = new TestHarnessClassLoader(transform, phase)
-        return loader.parseClass(input)
+        loader.parseClass(input)
     }
 
     /**
      * Compiles the String into a Class applying the transform specified in the constructor.
-     * @input input
-     *      must be a valid groovy source string
+     * @input input*      must be a valid groovy source string
      */
-    public Class parse(String input) {
+    Class parse(String input) {
         TestHarnessClassLoader loader = new TestHarnessClassLoader(transform, phase)
-        return loader.parseClass(input)
+        loader.parseClass(input)
     }
 }
 
 /**
-* ClassLoader exists so that TestHarnessOperation can be wired into the compile. 
-*
-* @author Hamlet D'Arcy
-*/
-@groovy.transform.PackageScope class TestHarnessClassLoader extends GroovyClassLoader {
+ * ClassLoader exists so that TestHarnessOperation can be wired into the compile.
+ */
+@PackageScope
+class TestHarnessClassLoader extends GroovyClassLoader {
 
     private final ASTTransformation transform
     private final CompilePhase phase
@@ -99,25 +95,24 @@ class TransformTestHelper {
 
     protected CompilationUnit createCompilationUnit(CompilerConfiguration config, CodeSource codeSource) {
         CompilationUnit cu = super.createCompilationUnit(config, codeSource)
-        cu.addPhaseOperation(new TestHarnessOperation(transform), phase.getPhaseNumber())
-        return cu
+        cu.addPhaseOperation(new TestHarnessOperation(transform), phase.phaseNumber)
+        cu
     }
 }
 
 /**
-* Operation exists so that an AstTransformation can be run against the SourceUnit.
-*
-* @author Hamlet D'Arcy
-*/
-@groovy.transform.PackageScope class TestHarnessOperation extends PrimaryClassNodeOperation {
+ * Operation exists so that an AstTransformation can be run against the SourceUnit.
+ */
+@PackageScope
+class TestHarnessOperation extends PrimaryClassNodeOperation {
 
     private final ASTTransformation transform
 
-    def TestHarnessOperation(transform) {
-        this.transform = transform;
+    TestHarnessOperation(transform) {
+        this.transform = transform
     }
 
-    public void call(SourceUnit source, GeneratorContext context, ClassNode classNode) {
+    void call(SourceUnit source, GeneratorContext ignoredContext, ClassNode ignoredNode) {
         transform.visit(null, source)
     }
 }

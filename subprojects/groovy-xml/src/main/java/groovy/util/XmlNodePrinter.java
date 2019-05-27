@@ -42,10 +42,11 @@ import java.util.Map;
  * &lt;/body&gt;
  * </pre>
  *
- * @author Christian Stein
  * @see groovy.util.NodePrinter
  * @see groovy.xml.XmlUtil#serialize(Node)
+ * @deprecated use {@link groovy.xml.XmlNodePrinter}
  */
+@Deprecated
 public class XmlNodePrinter {
 
     protected final IndentPrinter out;
@@ -414,6 +415,7 @@ public class XmlNodePrinter {
         }
     }
 
+    @Deprecated
     protected static class NamespaceContext {
         private final Map<String, String> namespaceMap;
 

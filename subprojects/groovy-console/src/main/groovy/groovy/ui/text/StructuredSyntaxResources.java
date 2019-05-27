@@ -24,9 +24,8 @@ import java.awt.datatransfer.Clipboard;
 /**
  * Contains all the basic resources and values used by the utility frame work
  * framework.
- *
- * @author Evan "Hippy" Slatis
  */
+@Deprecated
 public final class StructuredSyntaxResources {
 
     // ==================================================
@@ -41,7 +40,7 @@ public final class StructuredSyntaxResources {
             // a security exception
             SecurityManager mgr = System.getSecurityManager();
             if (mgr != null) {
-                mgr.checkSystemClipboardAccess();
+                mgr.checkPermission(new AWTPermission("accessClipboard"));
             }
             systemClipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
         }

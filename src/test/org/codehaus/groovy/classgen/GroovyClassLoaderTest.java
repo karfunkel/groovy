@@ -26,8 +26,6 @@ import java.io.File;
 
 /**
  * Tests dynamically compiling a new class
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
 public class GroovyClassLoaderTest extends TestSupport {
 
@@ -36,7 +34,7 @@ public class GroovyClassLoaderTest extends TestSupport {
 
         System.out.println("Invoking main...");
 
-        GroovyObject object = (GroovyObject) groovyClass.newInstance();
+        GroovyObject object = (GroovyObject) groovyClass.getDeclaredConstructor().newInstance();
 
         assertTrue(object != null);
 

@@ -23,13 +23,19 @@ import groovy.cli.picocli.OptionAccessor
 import groovy.inspect.swingui.AstBrowser
 import groovy.inspect.swingui.ObjectBrowser
 import groovy.swing.SwingBuilder
+import groovy.transform.CompileStatic
 import groovy.transform.ThreadInterrupt
 import groovy.ui.text.FindReplaceUtility
+import groovy.ui.text.GroovyFilter
+import groovy.ui.text.SmartDocumentFilter
 import org.apache.groovy.io.StringBuilderWriter
+import org.apache.groovy.parser.antlr4.GroovyLangLexer
+import org.apache.groovy.util.SystemUtil
 import org.codehaus.groovy.antlr.LexerFrame
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.control.ErrorCollector
 import org.codehaus.groovy.control.MultipleCompilationErrorsException
+import org.codehaus.groovy.control.ParserVersion
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
 import org.codehaus.groovy.control.messages.ExceptionMessage
 import org.codehaus.groovy.control.messages.SimpleMessage
@@ -40,7 +46,19 @@ import org.codehaus.groovy.syntax.SyntaxException
 import org.codehaus.groovy.tools.shell.util.MessageSource
 import org.codehaus.groovy.transform.ThreadInterruptibleASTTransformation
 
-import javax.swing.*
+import javax.swing.Action
+import javax.swing.Icon
+import javax.swing.JApplet
+import javax.swing.JFileChooser
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.JOptionPane
+import javax.swing.JScrollPane
+import javax.swing.JSplitPane
+import javax.swing.JTextPane
+import javax.swing.RootPaneContainer
+import javax.swing.SwingUtilities
+import javax.swing.UIManager
 import javax.swing.event.CaretEvent
 import javax.swing.event.CaretListener
 import javax.swing.event.DocumentListener
@@ -48,18 +66,24 @@ import javax.swing.event.HyperlinkEvent
 import javax.swing.event.HyperlinkListener
 import javax.swing.filechooser.FileFilter
 import javax.swing.text.AttributeSet
+import javax.swing.text.Document
 import javax.swing.text.Element
 import javax.swing.text.SimpleAttributeSet
 import javax.swing.text.Style
 import javax.swing.text.StyleConstants
 import javax.swing.text.html.HTML
-import java.awt.*
+import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.Dimension
+import java.awt.EventQueue
+import java.awt.Font
+import java.awt.Toolkit
+import java.awt.Window
 import java.awt.event.ActionEvent
 import java.awt.event.ComponentEvent
 import java.awt.event.ComponentListener
 import java.awt.event.FocusEvent
 import java.awt.event.FocusListener
-import java.util.List
 import java.util.prefs.Preferences
 
 /**
@@ -67,6 +91,7 @@ import java.util.prefs.Preferences
  *
  * Allows user to interactively enter and execute Groovy.
  */
+@Deprecated
 class Console implements CaretListener, HyperlinkListener, ComponentListener, FocusListener {
 
     static final String DEFAULT_SCRIPT_NAME_START = 'ConsoleScript'
@@ -77,6 +102,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     static boolean captureStdOut = prefs.getBoolean('captureStdOut', true)
     static boolean captureStdErr = prefs.getBoolean('captureStdErr', true)
     static consoleControllers = []
+
+    static boolean smartHighlighter = prefs.getBoolean('smartHighlighter',
+            Boolean.valueOf(SystemUtil.getSystemPropertySafe('groovy.console.enable.smart.highlighter', 'true')))
 
     boolean fullStackTraces = prefs.getBoolean('fullStackTraces',
         Boolean.valueOf(System.getProperty('groovy.full.stacktrace', 'false')))
@@ -94,6 +122,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
 
     boolean detachedOutput = prefs.getBoolean('detachedOutput', false)
     Action detachedOutputAction
+
+    boolean orientationVertical = prefs.getBoolean('orientationVertical', true)
+    Action orientationVerticalAction
     Action showOutputWindowAction
     Action hideOutputWindowAction1
     Action hideOutputWindowAction2
@@ -126,6 +157,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
 
     // Maximum number of characters to show on console at any time
     int maxOutputChars = System.getProperty('groovy.console.output.limit','20000') as int
+
+    // File to output stdout & stderr, in addition to console
+    PrintWriter outputPrintWriter = null
 
     // UI
     SwingBuilder swing
@@ -258,7 +292,6 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         if (remaining && !remaining[-1].startsWith("-")) {
             console.loadScriptFile(remaining[-1] as File)
         }
-
     }
 
     int loadMaxOutputChars() {
@@ -273,6 +306,32 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             consolePreferences = new ConsolePreferences(this)
         }
         consolePreferences.show()
+    }
+
+    void setOutputPreferences(boolean useOutputFile, File outputFile) {
+        prefs.remove('outputLogFileName')
+        if (!useOutputFile) {
+            closeOutputPrintWriter(outputFile)
+        } else {
+            if (outputFile != null) {
+                closeOutputPrintWriter()
+                createOutputPrintWriter(outputFile)
+                prefs.put('outputLogFileName', outputFile.getAbsolutePath())
+            }
+        }
+    }
+
+    void createOutputPrintWriter(File outputFile) {
+        outputPrintWriter = new PrintWriter(new FileOutputStream(
+                outputFile,
+                true))
+    }
+
+    void closeOutputPrintWriter() {
+        if (outputPrintWriter != null) {
+            outputPrintWriter.close()
+            outputPrintWriter = null
+        }
     }
 
     Console() {
@@ -298,13 +357,20 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         if (indy) {
             enableIndy(baseConfig)
         }
-        newScript(parent, binding);
+
+        // Set up output file for stdout/stderr, if any
+        def outputLogFileName = prefs.get('outputLogFileName', null)
+        if (outputLogFileName) {
+            createOutputPrintWriter(new File(outputLogFileName))
+        }
+
+        newScript(parent, binding)
         try {
             System.setProperty('groovy.full.stacktrace', System.getProperty('groovy.full.stacktrace',
                     Boolean.toString(prefs.getBoolean('fullStackTraces', false))))
 
         } catch (SecurityException se) {
-            fullStackTracesAction.enabled = false;
+            fullStackTracesAction.enabled = false
         }
         consoleControllers += this
 
@@ -346,7 +412,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             },
             menuBarDelegate: {arg->
                 current.JMenuBar = build(arg)}
-        ];
+        ]
 
     void run() {
         run(frameConsoleDelegates)
@@ -394,7 +460,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         swing.bind(source:swing.inputEditor.undoAction, sourceProperty:'enabled', target:swing.undoAction, targetProperty:'enabled')
         swing.bind(source:swing.inputEditor.redoAction, sourceProperty:'enabled', target:swing.redoAction, targetProperty:'enabled')
 
-        if (swing.consoleFrame instanceof java.awt.Window) {
+        if (swing.consoleFrame instanceof Window) {
             nativeFullScreenForMac(swing.consoleFrame)
             swing.consoleFrame.pack()
             swing.consoleFrame.show()
@@ -410,7 +476,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
      *
      * @param frame the application window
      */
-    private void nativeFullScreenForMac(java.awt.Window frame) {
+    private void nativeFullScreenForMac(Window frame) {
         if (System.getProperty('os.name').contains('Mac OS X')) {
             new GroovyShell(new Binding([frame: frame])).evaluate('''
                     try {
@@ -422,8 +488,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         }
     }
 
-
-    public void installInterceptor() {
+    void installInterceptor() {
         systemOutInterceptor = new SystemOutputInterceptor(this.&notifySystemOut, true)
         systemOutInterceptor.start()
         systemErrorInterceptor = new SystemOutputInterceptor(this.&notifySystemErr, false)
@@ -444,7 +509,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     // Ensure we don't have too much in console (takes too much memory)
     private ensureNoDocLengthOverflow(doc) {
         // if it is a case of stackOverFlowError, show the exception details from the front
-        // as there is no point in showing the repeating details at the back 
+        // as there is no point in showing the repeating details at the back
         int offset = stackOverFlowError ? maxOutputChars : 0
         if (doc.length > maxOutputChars) {
             doc.remove(offset, doc.length - maxOutputChars)
@@ -454,7 +519,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     // Append a string to the output area
     void appendOutput(String text, AttributeSet style){
         def doc = outputArea.styledDocument
-        doc.insertString(doc.length, text, style)
+        insertString(doc, doc.length, text, style)
         ensureNoDocLengthOverflow(doc)
     }
 
@@ -467,14 +532,14 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     void appendOutput(Component component, AttributeSet style) {
-        SimpleAttributeSet sas = new SimpleAttributeSet();
+        SimpleAttributeSet sas = new SimpleAttributeSet()
         sas.addAttribute(StyleConstants.NameAttribute, 'component')
         StyleConstants.setComponent(sas, component)
         appendOutput(component.toString(), sas)
     }
 
     void appendOutput(Icon icon, AttributeSet style) {
-        SimpleAttributeSet sas = new SimpleAttributeSet();
+        SimpleAttributeSet sas = new SimpleAttributeSet()
         sas.addAttribute(StyleConstants.NameAttribute, 'icon')
         StyleConstants.setIcon(sas, icon)
         appendOutput(icon.toString(), sas)
@@ -507,17 +572,27 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
                 def hrefAttr = new SimpleAttributeSet()
                 // don't pass a GString as it won't be coerced to String as addAttribute takes an Object
                 hrefAttr.addAttribute(HTML.Attribute.HREF, 'file://' + fileNameAndLineNumber)
-                style.addAttribute(HTML.Tag.A, hrefAttr);
+                style.addAttribute(HTML.Tag.A, hrefAttr)
 
-                doc.insertString(initialLength,                     line[0..<index],                    stacktraceStyle)
-                doc.insertString(initialLength + index,             line[index..<(index + length)],     style)
-                doc.insertString(initialLength + index + length,    line[(index + length)..-1] + '\n',  stacktraceStyle)
+                insertString(doc, initialLength,                     line[0..<index],                    stacktraceStyle)
+                insertString(doc, initialLength + index,             line[index..<(index + length)],     style)
+                insertString(doc, initialLength + index + length,    line[(index + length)..-1] + '\n',  stacktraceStyle)
             } else {
-                doc.insertString(initialLength, line + '\n', stacktraceStyle)
+                insertString(doc, initialLength, line + '\n', stacktraceStyle)
             }
         }
 
         ensureNoDocLengthOverflow(doc)
+    }
+
+    void insertString(Document doc, int offset, String text, AttributeSet attributeSet, boolean outputToFile = true) {
+        doc.insertString(offset, text, attributeSet)
+
+        // Output to file if activated
+        if (outputToFile && outputPrintWriter != null) {
+            outputPrintWriter.append(text)
+            outputPrintWriter.flush()
+        }
     }
 
     // Append a string to the output area on a new line
@@ -525,7 +600,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         def doc = outputArea.styledDocument
         def len = doc.length
         def alreadyNewLine = (len == 0 || doc.getText(len - 1, 1) == '\n')
-        doc.insertString(doc.length, ' \n', style)
+        insertString(doc, doc.length, ' \n', style)
         if (alreadyNewLine) {
             doc.remove(len, 2) // windows hack to fix (improve?) line spacing
         }
@@ -536,7 +611,9 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         appendOutput(text, style)
         def doc = outputArea.styledDocument
         def len = doc.length
-        doc.insertString(len, ' \n', style)
+
+        // Disable output to log file in this case ('\n' is removed from outputArea next line)
+        insertString(doc, len, ' \n', style, false)
         doc.remove(len, 2) // windows hack to fix (improve?) line spacing
     }
 
@@ -578,7 +655,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         captureStdErr = evt.source.selected
         prefs.putBoolean('captureStdErr', captureStdErr)
     }
-    
+
     void fullStackTraces(EventObject evt) {
         fullStackTraces = evt.source.selected
         System.setProperty('groovy.full.stacktrace',
@@ -600,6 +677,21 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         showToolbar = evt.source.selected
         prefs.putBoolean('showToolbar', showToolbar)
         toolbar.visible = showToolbar
+    }
+
+    void orientationVertical(EventObject evt) {
+        def oldValue = orientationVertical
+        orientationVertical = evt.source.selected
+        prefs.putBoolean('orientationVertical', orientationVertical)
+        if (oldValue != orientationVertical) {
+            if (orientationVertical) {
+                splitPane.setOrientation(JSplitPane.VERTICAL_SPLIT)
+            } else {
+                splitPane.setOrientation(JSplitPane.HORIZONTAL_SPLIT)
+            }
+            splitPane.resizeWeight = detachedOutput ? 1.0 : 0.5
+            splitPane.resetToPreferredSizes()
+        }
     }
 
     void detachedOutput(EventObject evt) {
@@ -648,9 +740,21 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     void caretUpdate(CaretEvent e){
-        textSelectionStart = Math.min(e.dot,e.mark)
-        textSelectionEnd = Math.max(e.dot,e.mark)
+        textSelectionStart = Math.min(dot(e), mark(e))
+        textSelectionEnd = Math.max(dot(e), mark(e))
         setRowNumAndColNum()
+    }
+
+    // GROOVY-8339: to avoid illegal access to a non-visible implementation class - can be removed if a more general solution is found
+    @CompileStatic
+    int dot(CaretEvent e) {
+        e.dot
+    }
+
+    // GROOVY-8339: to avoid illegal access to a non-visible implementation class - can be removed if a more general solution is found
+    @CompileStatic
+    int mark(CaretEvent e) {
+        e.mark
     }
 
     void clearOutput(EventObject evt = null) {
@@ -674,10 +778,15 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         runThread?.interrupt()
     }
 
+    void exitDesktop(EventObject evt = null, quitResponse = null) {
+        exit(evt)
+        quitResponse.performQuit()
+    }
+
     void exit(EventObject evt = null) {
-        if(askToInterruptScript()) {
+        if (askToInterruptScript()) {
             if (askToSaveFile()) {
-                if (frame instanceof java.awt.Window) {
+                if (frame instanceof Window) {
                     frame.hide()
                     frame.dispose()
                     outputWindow?.dispose()
@@ -708,7 +817,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         consoleController.systemOutInterceptor = systemOutInterceptor
         consoleController.systemErrorInterceptor = systemErrorInterceptor
         SwingBuilder swing = new SwingBuilder()
-        consoleController.swing = swing 
+        consoleController.swing = swing
         frameConsoleDelegates.each {k, v -> swing[k] = v}
         swing.controller = consoleController
         swing.build(ConsoleActions)
@@ -799,7 +908,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
                     int errorLine = se.line
                     String message = se.originalMessage
 
-                    String scriptFileName = scriptFile?.name ?: DEFAULT_SCRIPT_NAME_START 
+                    String scriptFileName = scriptFile?.name ?: DEFAULT_SCRIPT_NAME_START
 
                     def doc = outputArea.styledDocument
 
@@ -807,17 +916,17 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
                     def hrefAttr = new SimpleAttributeSet()
                     // don't pass a GString as it won't be coerced to String as addAttribute takes an Object
                     hrefAttr.addAttribute(HTML.Attribute.HREF, 'file://' + scriptFileName + ':' + errorLine)
-                    style.addAttribute(HTML.Tag.A, hrefAttr);
+                    style.addAttribute(HTML.Tag.A, hrefAttr)
 
-                    doc.insertString(doc.length, message + ' at ', stacktraceStyle)
-                    doc.insertString(doc.length, "line: ${se.line}, column: ${se.startColumn}\n\n", style)
+                    insertString(doc, doc.length, message + ' at ', stacktraceStyle)
+                    insertString(doc, doc.length, "line: ${se.line}, column: ${se.startColumn}\n\n", style)
                 } else if (error instanceof Throwable) {
                     reportException(error)
                 } else if (error instanceof ExceptionMessage) {
-                    reportException(error.cause) 
+                    reportException(error.cause)
                 } else if (error instanceof SimpleMessage) {
                     def doc = outputArea.styledDocument
-                    doc.insertString(doc.length, "${error.message}\n", new SimpleAttributeSet())
+                    insertString(doc, doc.length, "${error.message}\n", new SimpleAttributeSet())
                 }
             }
         } else {
@@ -829,7 +938,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         }
 
         // GROOVY-4496: set the output window position to the top-left so the exception details are visible from the start
-        outputArea.caretPosition = 0 
+        outputArea.caretPosition = 0
 
         if (detachedOutput) {
             prepareOutputWindow()
@@ -870,7 +979,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             showOutputWindow()
         }
     }
-    
+
     def compileFinishNormal() {
         statusLabel.text = 'Compilation complete.'
     }
@@ -934,7 +1043,12 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     void inspectTokens(EventObject evt = null) {
-        def lf = LexerFrame.groovyScriptFactory(inputArea.getText())
+        def content = inputArea.getText()
+        def lf =
+                ParserVersion.V_2 == CompilerConfiguration.DEFAULT.parserVersion ?
+                        LexerFrame.groovyScriptFactory(content) :
+                        new LexerFrame(GroovyLangLexer, org.apache.groovy.parser.antlr4.GroovyLexer, new StringReader(content))
+
         lf.visible = true
     }
 
@@ -1163,7 +1277,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
                     // set the flag that will be used in printing exception details in output pane
                     stackOverFlowError = true
                     clearOutput()
-                } 
+                }
                 SwingUtilities.invokeLater { finishException(t, true) }
             } finally {
                 runThread = null
@@ -1209,7 +1323,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
             }
         }
     }
-    
+
     def selectFilename(name = 'Open') {
         def fc = new JFileChooser(currentFileChooserDir)
         fc.fileSelectionMode = JFileChooser.FILES_ONLY
@@ -1295,47 +1409,46 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     void replace(EventObject evt = null) {
         FindReplaceUtility.showDialog(true)
     }
-    
+
     void comment(EventObject evt = null) {
-	def rootElement = inputArea.document.defaultRootElement
-	def cursorPos = inputArea.getCaretPosition()
-	int startRow = rootElement.getElementIndex(cursorPos)
-	int endRow = startRow
-	
-	if (inputArea.getSelectedText()) {
-	    def selectionStart = inputArea.getSelectionStart()
-	    startRow = rootElement.getElementIndex(selectionStart)
-	    def selectionEnd = inputArea.getSelectionEnd()
-	    endRow = rootElement.getElementIndex(selectionEnd)
-	}
-	
-	// If multiple commented lines intermix with uncommented lines, consider them uncommented 
-	def allCommented = true
-	startRow.upto(endRow) { rowIndex ->
-	    def rowElement = rootElement.getElement(rowIndex)
-	    int startOffset = rowElement.getStartOffset()
-	    int endOffset = rowElement.getEndOffset()
-	    String rowText = inputArea.document.getText(startOffset, endOffset - startOffset)
-	    if (rowText.trim().length() < 2 || !rowText.trim().substring(0, 2).equals("//")) {
-	    	allCommented = false
-	    }
-	}
-	
-	startRow.upto(endRow) { rowIndex ->
-	    def rowElement = rootElement.getElement(rowIndex)
-	    int startOffset = rowElement.getStartOffset()
-	    int endOffset = rowElement.getEndOffset()
-	    String rowText = inputArea.document.getText(startOffset, endOffset - startOffset)
-	    if (allCommented) {
-		// Uncomment this line if it is already commented
-		int slashOffset = rowText.indexOf("//")
-		inputArea.document.remove(slashOffset + startOffset, 2)
-	    } else {
-	    	// Add comment string in front of this line
-	    	inputArea.document.insertString(startOffset, "//", new SimpleAttributeSet())
-	    }
-	}
-	
+        def rootElement = inputArea.document.defaultRootElement
+        def cursorPos = inputArea.getCaretPosition()
+        int startRow = rootElement.getElementIndex(cursorPos)
+        int endRow = startRow
+
+        if (inputArea.getSelectedText()) {
+            def selectionStart = inputArea.getSelectionStart()
+            startRow = rootElement.getElementIndex(selectionStart)
+            def selectionEnd = inputArea.getSelectionEnd()
+            endRow = rootElement.getElementIndex(selectionEnd)
+        }
+
+        // If multiple commented lines intermix with uncommented lines, consider them uncommented
+        def allCommented = true
+        startRow.upto(endRow) { rowIndex ->
+            def rowElement = rootElement.getElement(rowIndex)
+            int startOffset = rowElement.getStartOffset()
+            int endOffset = rowElement.getEndOffset()
+            String rowText = inputArea.document.getText(startOffset, endOffset - startOffset)
+            if (rowText.trim().length() < 2 || !rowText.trim().substring(0, 2).equals("//")) {
+                allCommented = false
+            }
+        }
+
+        startRow.upto(endRow) { rowIndex ->
+            def rowElement = rootElement.getElement(rowIndex)
+            int startOffset = rowElement.getStartOffset()
+            int endOffset = rowElement.getEndOffset()
+            String rowText = inputArea.document.getText(startOffset, endOffset - startOffset)
+            if (allCommented) {
+            // Uncomment this line if it is already commented
+            int slashOffset = rowText.indexOf("//")
+            inputArea.document.remove(slashOffset + startOffset, 2)
+            } else {
+                // Add comment string in front of this line
+                inputArea.document.insertString(startOffset, "//", new SimpleAttributeSet())
+            }
+        }
     }
 
     void selectBlock(EventObject evt = null) {
@@ -1417,7 +1530,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     void showCompilingMessage() {
         statusLabel.text = 'Script compiling now. Please wait.'
     }
-    
+
     // Shows the detached 'outputArea' dialog
     void showOutputWindow(EventObject evt = null) {
         if (detachedOutput) {
@@ -1441,8 +1554,14 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         updateFontSize(inputArea.font.size - 2)
     }
 
+    void smartHighlighter(EventObject evt = null) {
+        inputEditor.enableHighLighter(evt.source.selected ? SmartDocumentFilter : GroovyFilter)
+        inputEditor.textEditor.setText(inputEditor.textEditor.getText()) // enable the highlighter immediately
+        prefs.putBoolean('smartHighlighter', evt.source.selected)
+    }
+
     void updateTitle() {
-        if (frame.properties.containsKey('title')) {
+        if (frame.title) {
             String title = 'GroovyConsole'
             if (indy) {
                 title += ' (Indy)'
@@ -1461,7 +1580,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         } else if (newFontSize < 4) {
             newFontSize = 4
         }
-        
+
         prefs.putInt('fontSize', newFontSize)
 
         // don't worry, the fonts won't be changed to this family, the styles will only derive from this
@@ -1490,7 +1609,7 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 
     void selectAll(EventObject evt = null) {
-        invokeTextAction(evt, { source -> source.selectAll() })
+        invokeTextAction(evt, { source -> source.selectAll() }, copyFromComponent ?: inputArea)
     }
 
     void setRowNumAndColNum() {
@@ -1565,16 +1684,16 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
         }
     }
 
-    public void componentShown(ComponentEvent e) { }
+    void componentShown(ComponentEvent e) { }
 
-    public void focusGained(FocusEvent e) {
+    void focusGained(FocusEvent e) {
         // remember component with focus for text-copy functionality
         if (e.component == outputArea || e.component == inputArea) {
             copyFromComponent = e.component
         }
     }
 
-    public void focusLost(FocusEvent e) { }
+    void focusLost(FocusEvent e) { }
 
     private static boolean isWindows() {
         return getOsName().startsWith("windows")
@@ -1584,23 +1703,25 @@ class Console implements CaretListener, HyperlinkListener, ComponentListener, Fo
     }
 }
 
+@CompileStatic
+@Deprecated
 class GroovyFileFilter extends FileFilter {
-    private static final GROOVY_SOURCE_EXTENSIONS = ['*.groovy', '*.gvy', '*.gy', '*.gsh', '*.story', '*.gpp', '*.grunit']
+    private static final List GROOVY_SOURCE_EXTENSIONS = ['*.groovy', '*.gvy', '*.gy', '*.gsh', '*.story', '*.gpp', '*.grunit']
     private static final GROOVY_SOURCE_EXT_DESC = GROOVY_SOURCE_EXTENSIONS.join(',')
 
-    public boolean accept(File f) {
+    boolean accept(File f) {
         if (f.isDirectory()) {
             return true
         }
         GROOVY_SOURCE_EXTENSIONS.find {it == getExtension(f)} ? true : false
     }
 
-    public String getDescription() {
+    String getDescription() {
         "Groovy Source Files ($GROOVY_SOURCE_EXT_DESC)"
     }
-    
-    static String getExtension(f) {
-        def ext = null;
+
+    static String getExtension(File f) {
+        def ext = null
         def s = f.getName()
         def i = s.lastIndexOf('.')
         if (i > 0 &&  i < s.length() - 1) {

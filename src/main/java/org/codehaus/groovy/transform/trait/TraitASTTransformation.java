@@ -68,6 +68,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import static org.apache.groovy.ast.tools.AnnotatedNodeUtils.markAsGenerated;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.returnS;
 import static org.codehaus.groovy.transform.trait.SuperCallTraitTransformer.UNRESOLVED_HELPER_CLASS;
 
@@ -79,8 +80,6 @@ import static org.codehaus.groovy.transform.trait.SuperCallTraitTransformer.UNRE
  * <li>a utility inner class that will be used by the compiler to implement the trait</li>
  * <li>potentially a utility inner class to assist with implementing trait fields</li>
  * </ul>
- *
- * @author Cedric Champeau
  */
 @GroovyASTTransformation(phase = CompilePhase.SEMANTIC_ANALYSIS)
 public class TraitASTTransformation extends AbstractASTTransformation implements CompilationUnitAware {
@@ -184,25 +183,39 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
         // prepare fields
         List<FieldNode> fields = new ArrayList<FieldNode>();
         Set<String> fieldNames = new HashSet<String>();
+        boolean hasStatic = false;
         for (FieldNode field : cNode.getFields()) {
             if (!"metaClass".equals(field.getName()) && (!field.isSynthetic() || field.getName().indexOf('$') < 0)) {
                 fields.add(field);
                 fieldNames.add(field.getName());
+                if (field.isStatic()) {
+                    hasStatic = true;
+                }
             }
         }
         ClassNode fieldHelper = null;
+        ClassNode staticFieldHelper = null;
         if (!fields.isEmpty()) {
             fieldHelper = new InnerClassNode(
                     cNode,
                     Traits.fieldHelperClassName(cNode),
-                    ACC_STATIC | ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT,
+                    ACC_STATIC | ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT | ACC_SYNTHETIC,
                     ClassHelper.OBJECT_TYPE
             );
+            if (hasStatic) {
+                staticFieldHelper = new InnerClassNode(
+                        cNode,
+                        Traits.staticFieldHelperClassName(cNode),
+                        ACC_STATIC | ACC_PUBLIC | ACC_INTERFACE | ACC_ABSTRACT | ACC_SYNTHETIC,
+                        ClassHelper.OBJECT_TYPE
+                );
+            }
         }
 
         // add methods
         List<MethodNode> methods = new ArrayList<MethodNode>(cNode.getMethods());
         List<MethodNode> nonPublicAPIMethods = new LinkedList<MethodNode>();
+        List<Statement> staticInitStatements = null;
         for (final MethodNode methodNode : methods) {
             boolean declared = methodNode.getDeclaringClass() == cNode;
             if (declared) {
@@ -211,7 +224,15 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
                             methodNode.getLineNumber(), methodNode.getColumnNumber()));
                     return null;
                 }
-                helper.addMethod(processMethod(cNode, helper, methodNode, fieldHelper, fieldNames));
+                if (!methodNode.isAbstract()) {
+                    MethodNode newMethod = processMethod(cNode, helper, methodNode, fieldHelper, fieldNames);
+                    if (methodNode.getName().equals("<clinit>")) {
+                        staticInitStatements = getStatements(newMethod.getCode());
+                    } else {
+                        // add non-abstract methods; abstract methods covered from trait interface
+                        helper.addMethod(newMethod);
+                    }
+                }
                 if (methodNode.isPrivate() || methodNode.isStatic()) {
                     nonPublicAPIMethods.add(methodNode);
                 }
@@ -225,14 +246,31 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
 
         // add fields
         for (FieldNode field : fields) {
-            processField(field, initializer, staticInitializer, fieldHelper, helper, cNode, fieldNames);
+            processField(field, initializer, staticInitializer, fieldHelper, helper, staticFieldHelper, cNode, fieldNames);
         }
+
+        // copy statements from static and instance init blocks
+        if (staticInitStatements != null) {
+            BlockStatement toBlock = getBlockStatement(staticInitializer, staticInitializer.getCode());
+            for (Statement next : staticInitStatements) {
+                toBlock.addStatement(next);
+            }
+        }
+        List<Statement> initStatements = cNode.getObjectInitializerStatements();
+        Statement toCode = initializer.getCode();
+        BlockStatement toBlock = getBlockStatement(initializer, toCode);
+        for (Statement next : initStatements) {
+            Parameter selfParam = createSelfParameter(cNode, false);
+            toBlock.addStatement(processBody(new VariableExpression(selfParam), next, cNode, helper, fieldHelper, fieldNames));
+        }
+        initStatements.clear();
 
         // clear properties to avoid generation of methods
         cNode.getProperties().clear();
 
         // copy annotations
         copyClassAnnotations(cNode, helper);
+        markAsGenerated(cNode, helper);
 
         fields = new ArrayList<FieldNode>(cNode.getFields()); // reuse the full list of fields
         for (FieldNode field : fields) {
@@ -245,14 +283,41 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
         unit.getAST().addClass(helper);
         if (fieldHelper != null) {
             unit.getAST().addClass(fieldHelper);
+            if (staticFieldHelper != null) {
+                unit.getAST().addClass(staticFieldHelper);
+            }
         }
 
         // resolve scope (for closures)
         resolveScope(helper);
-        if (fieldHelper!=null) {
+        if (fieldHelper != null) {
             resolveScope(fieldHelper);
+            if (staticFieldHelper != null) {
+                resolveScope(staticFieldHelper);
+            }
         }
         return helper;
+    }
+
+    private BlockStatement getBlockStatement(MethodNode targetMethod, Statement code) {
+        BlockStatement toBlock;
+        if (code instanceof BlockStatement) {
+            toBlock = (BlockStatement) code;
+        } else {
+            toBlock = new BlockStatement();
+            toBlock.addStatement(code);
+            targetMethod.setCode(toBlock);
+        }
+        return toBlock;
+    }
+
+    private List<Statement> getStatements(Statement stmt) {
+        if (stmt instanceof BlockStatement) {
+            return ((BlockStatement) stmt).getStatements();
+        }
+        List<Statement> result = new ArrayList<Statement>();
+        result.add(stmt);
+        return result;
     }
 
     private static MethodNode createInitMethod(final boolean isStatic, final ClassNode cNode, final ClassNode helper) {
@@ -407,7 +472,7 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
     }
 
     private void processField(final FieldNode field, final MethodNode initializer, final MethodNode staticInitializer,
-                              final ClassNode fieldHelper, final ClassNode helper, final ClassNode trait,
+                              final ClassNode fieldHelper, final ClassNode helper, final ClassNode staticFieldHelper, final ClassNode trait,
                               final Set<String> knownFields) {
         if (field.isProtected()) {
             unit.addError(new SyntaxException("Cannot have protected field in a trait (" + trait.getName() + "#" + field.getName() + ")",
@@ -417,6 +482,7 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
 
         Expression initialExpression = field.getInitialExpression();
         MethodNode selectedMethod = field.isStatic()?staticInitializer:initializer;
+        ClassNode target = field.isStatic() && staticFieldHelper != null ? staticFieldHelper : fieldHelper;
         if (initialExpression != null) {
             VariableExpression thisObject = new VariableExpression(selectedMethod.getParameters()[0]);
             ExpressionStatement initCode = new ExpressionStatement(initialExpression);
@@ -432,32 +498,36 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
                         returnS(initCode.getExpression())
                 );
                 helper.addMethod(fieldInitializer);
-            }
-            BlockStatement code = (BlockStatement) selectedMethod.getCode();
-            MethodCallExpression mce;
-            if (field.isStatic()) {
-                mce = new MethodCallExpression(
-                        new ClassExpression(INVOKERHELPER_CLASSNODE),
-                        "invokeStaticMethod",
-                        new ArgumentListExpression(
-                                thisObject,
-                                new ConstantExpression(Traits.helperSetterName(field)),
-                                initCode.getExpression()
-                        )
-                );
             } else {
-                mce = new MethodCallExpression(
-                        new CastExpression(createReceiverType(field.isStatic(), fieldHelper), thisObject),
-                        Traits.helperSetterName(field),
-                        new CastExpression(field.getOriginType(),initCode.getExpression())
-                );
+                BlockStatement code = (BlockStatement) selectedMethod.getCode();
+                MethodCallExpression mce;
+                if (field.isStatic()) {
+                    if (staticFieldHelper != null) {
+                        target = staticFieldHelper;
+                    }
+                    mce = new MethodCallExpression(
+                            new ClassExpression(INVOKERHELPER_CLASSNODE),
+                            "invokeStaticMethod",
+                            new ArgumentListExpression(
+                                    thisObject,
+                                    new ConstantExpression(Traits.helperSetterName(field)),
+                                    initCode.getExpression()
+                            )
+                    );
+                } else {
+                    mce = new MethodCallExpression(
+                            new CastExpression(createReceiverType(field.isStatic(), fieldHelper), thisObject),
+                            Traits.helperSetterName(field),
+                            new CastExpression(field.getOriginType(),initCode.getExpression())
+                    );
+                }
+                mce.setImplicitThis(false);
+                mce.setSourcePosition(initialExpression);
+                code.addStatement(new ExpressionStatement(mce));
             }
-            mce.setImplicitThis(false);
-            mce.setSourcePosition(initialExpression);
-            code.addStatement(new ExpressionStatement(mce));
         }
         // define setter/getter helper methods (setter added even for final fields for legacy compatibility)
-        fieldHelper.addMethod(
+        target.addMethod(
                 Traits.helperSetterName(field),
                 ACC_PUBLIC | ACC_ABSTRACT,
                 field.getOriginType(),
@@ -465,7 +535,7 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
                 ClassNode.EMPTY_ARRAY,
                 null
         );
-        fieldHelper.addMethod(
+        target.addMethod(
                 Traits.helperGetterName(field),
                 ACC_PUBLIC | ACC_ABSTRACT,
                 field.getOriginType(),
@@ -516,7 +586,7 @@ public class TraitASTTransformation extends AbstractASTTransformation implements
         Parameter[] newParams = new Parameter[initialParams.length + 1];
         newParams[0] = createSelfParameter(traitClass, methodNode.isStatic());
         System.arraycopy(initialParams, 0, newParams, 1, initialParams.length);
-        final int mod = methodNode.isPrivate()?ACC_PRIVATE:ACC_PUBLIC;
+        final int mod = methodNode.isPrivate() ? ACC_PRIVATE : ACC_PUBLIC | (methodNode.isFinal() ? ACC_FINAL : 0);
         MethodNode mNode = new MethodNode(
                 methodNode.getName(),
                 mod | ACC_STATIC,

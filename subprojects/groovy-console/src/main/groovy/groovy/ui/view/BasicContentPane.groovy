@@ -20,26 +20,41 @@ package groovy.ui.view
 
 import groovy.ui.Console
 import groovy.ui.ConsoleTextEditor
+import groovy.ui.text.SmartDocumentFilter
 
-import javax.swing.*
+import javax.swing.JSplitPane
+import javax.swing.WindowConstants
 import javax.swing.text.Style
 import javax.swing.text.StyleConstants
 import javax.swing.text.StyleContext
 import javax.swing.text.StyledDocument
-import java.awt.*
+import java.awt.BorderLayout
+import java.awt.Color
+import java.awt.Dimension
+import java.awt.Font
+import java.awt.FontMetrics
+import java.awt.Graphics
+import java.awt.GraphicsEnvironment
 import java.awt.image.BufferedImage
 import java.util.prefs.Preferences
 
+import static javax.swing.JSplitPane.HORIZONTAL_SPLIT
 import static javax.swing.JSplitPane.VERTICAL_SPLIT
 
-def prefs = Preferences.userNodeForPackage(Console)
+Preferences prefs = Preferences.userNodeForPackage(Console)
 def detachedOutputFlag = prefs.getBoolean('detachedOutput', false)
 outputWindow = frame(visible:false, defaultCloseOperation: WindowConstants.HIDE_ON_CLOSE) {
     blank = glue()
     blank.preferredSize = [0, 0] as Dimension
 }
-splitPane = splitPane(resizeWeight: 0.5, orientation: VERTICAL_SPLIT) {
-    inputEditor = widget(new ConsoleTextEditor(), border:emptyBorder(0))
+splitPane = splitPane(resizeWeight: 0.5, orientation:
+        prefs.getBoolean('orientationVertical', true) ? VERTICAL_SPLIT : HORIZONTAL_SPLIT) {
+    def editor = new ConsoleTextEditor()
+    boolean smartHighlighterEnabled = Console.smartHighlighter
+    if (smartHighlighterEnabled) {
+        editor.enableHighLighter(SmartDocumentFilter)
+    }
+    inputEditor = widget(editor, border:emptyBorder(0))
     buildOutputArea(prefs)
 }
 
@@ -125,12 +140,12 @@ FontMetrics fm = g.getFontMetrics(outputArea.font)
 
 outputArea.preferredSize = [
     prefs.getInt('outputAreaWidth', fm.charWidth(0x77) * 81),
-    prefs.getInt('outputAreaHeight', (fm.getHeight() + fm.leading) * 12)
+    prefs.getInt('outputAreaHeight', (fm.getHeight() + fm.getLeading()) * 12)
 ] as Dimension
 
 inputEditor.preferredSize = [
     prefs.getInt('inputAreaWidth', fm.charWidth(0x77) * 81),
-    prefs.getInt('inputAreaHeight', (fm.getHeight() + fm.leading) * 12)
+    prefs.getInt('inputAreaHeight', (fm.getHeight() + fm.getLeading()) * 12)
 ] as Dimension
 
 origDividerSize = -1

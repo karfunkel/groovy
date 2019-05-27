@@ -24,34 +24,17 @@ import org.codehaus.groovy.runtime.InvokerInvocationException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+import java.lang.reflect.Modifier;
 
-/**
- * @author Alex.Tkachman
- */
+import static org.codehaus.groovy.reflection.ReflectionUtils.makeAccessibleInPrivilegedAction;
+
 public class CachedConstructor extends ParameterTypes {
-    CachedClass clazz;
-
-    public final Constructor cachedConstructor;
+    private final CachedClass clazz;
+    private final Constructor cachedConstructor;
 
     public CachedConstructor(CachedClass clazz, final Constructor c) {
         this.cachedConstructor = c;
         this.clazz = clazz;
-        try {
-            AccessController.doPrivileged(new PrivilegedAction() {
-                public Object run() {
-                    c.setAccessible(true);
-                    return null;
-                }
-            });
-        } catch (SecurityException e) {
-            // IGNORE
-        } catch (RuntimeException re) {
-            // test for JDK9 JIGSAW
-            if (!"java.lang.reflect.InaccessibleObjectException".equals(re.getClass().getName())) throw re;
-            // else IGNORE
-        }
     }
 
     public CachedConstructor(Constructor c) {
@@ -79,6 +62,13 @@ public class CachedConstructor extends ParameterTypes {
 
     public Object invoke(Object[] argumentArray) {
         Constructor constr = cachedConstructor;
+
+        if (isConstructorOfAbstractClass()) {
+            throw createException("failed to invoke constructor: ", constr, argumentArray, new InstantiationException(), true);
+        }
+
+        makeAccessibleIfNecessary();
+
         try {
             return constr.newInstance(argumentArray);
         } catch (InvocationTargetException e) {
@@ -112,5 +102,27 @@ public class CachedConstructor extends ParameterTypes {
     
     public CachedClass getCachedClass() {
         return clazz;
+    }
+
+    public Class getDeclaringClass() {
+        return cachedConstructor.getDeclaringClass();
+    }
+
+    public Constructor getCachedConstructor() {
+        makeAccessibleIfNecessary();
+        AccessPermissionChecker.checkAccessPermission(cachedConstructor);
+        return cachedConstructor;
+    }
+
+    private boolean makeAccessibleDone = false;
+    private void makeAccessibleIfNecessary() {
+        if (!makeAccessibleDone) {
+            makeAccessibleInPrivilegedAction(cachedConstructor);
+            makeAccessibleDone = true;
+        }
+    }
+
+    private boolean isConstructorOfAbstractClass() {
+        return Modifier.isAbstract(cachedConstructor.getDeclaringClass().getModifiers());
     }
 }

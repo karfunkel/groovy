@@ -18,21 +18,21 @@
  */
 package groovy.util
 
+import groovy.ant.AntBuilder
+
 /**
  * Find files according to a base directory and an includes and excludes pattern.
  * The include and exclude patterns conform to Ant's fileset pattern conventions.
- *
- * @author Dierk Koenig
- * @author Paul King
  */
+@Deprecated
 class FileNameFinder implements IFileNameFinder {
 
     List<String> getFileNames(String basedir, String pattern) {
-        return getFileNames(dir: basedir, includes: pattern)
+        getFileNames(dir: basedir, includes: pattern)
     }
 
     List<String> getFileNames(String basedir, String pattern, String excludesPattern) {
-        return getFileNames(dir: basedir, includes: pattern, excludes: excludesPattern)
+        getFileNames(dir: basedir, includes: pattern, excludes: excludesPattern)
     }
 
     List<String> getFileNames(Map args) {
@@ -40,10 +40,10 @@ class FileNameFinder implements IFileNameFinder {
         def scanner = ant.fileScanner {
             fileset(args)
         }
-        def fls = []
-        for (f in scanner) {
-            fls << f.getAbsolutePath()
+        List<String> files = []
+        for (File f in scanner) {
+            files << f.absolutePath
         }
-        return fls
+        files
     }
 }

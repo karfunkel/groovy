@@ -18,6 +18,7 @@
  */
 package groovy.xml;
 
+import groovy.namespace.QName;
 import groovy.util.BuilderSupport;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -37,8 +38,6 @@ import java.util.Map;
 
 /**
  * A helper class for creating a W3C DOM tree
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
 public class DOMBuilder extends BuilderSupport {
 

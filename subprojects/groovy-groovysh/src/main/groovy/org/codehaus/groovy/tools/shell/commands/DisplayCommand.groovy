@@ -23,9 +23,8 @@ import org.codehaus.groovy.tools.shell.Groovysh
 
 /**
  * The 'display' command. Displays the current buffer (e.g. while method declaration was not finished).
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
+@Deprecated
 class DisplayCommand
     extends CommandSupport
 {

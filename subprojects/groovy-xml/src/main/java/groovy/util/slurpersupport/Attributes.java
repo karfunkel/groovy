@@ -32,9 +32,8 @@ import java.util.Map;
 
 /**
  * Lazy evaluated representation of a node's attributes.
- *
- * @author John Wilson
  */
+@Deprecated
 public class Attributes extends NodeChildren {
     final String attributeName;
 

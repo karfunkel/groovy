@@ -18,9 +18,8 @@
  */
 package groovy
 
-/**
- * @author Jochen "blackdrag" Theodorou
- */
+import groovy.test.GroovyTestCase
+
 class SimpleTemplateEngineTest extends GroovyTestCase {
 
     void testBindingWithDefault() {

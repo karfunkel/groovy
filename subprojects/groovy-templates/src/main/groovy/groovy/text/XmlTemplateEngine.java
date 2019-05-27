@@ -25,9 +25,9 @@ import groovy.lang.Script;
 import groovy.lang.Writable;
 import groovy.util.IndentPrinter;
 import groovy.util.Node;
-import groovy.util.XmlNodePrinter;
-import groovy.util.XmlParser;
-import groovy.xml.QName;
+import groovy.xml.XmlNodePrinter;
+import groovy.xml.XmlParser;
+import groovy.namespace.QName;
 import org.apache.groovy.io.StringBuilderWriter;
 import org.codehaus.groovy.control.CompilationFailedException;
 import org.codehaus.groovy.runtime.InvokerHelper;
@@ -54,7 +54,7 @@ import java.util.Map;
  * <p>
  * Comments and processing instructions
  * will be removed as part of processing and special XML characters such as
- * &lt;, &gt;, &quot and &apos; will be escaped using the respective XML notation.
+ * &lt;, &gt;, &quot; and &apos; will be escaped using the respective XML notation.
  * The output will also be indented using standard XML pretty printing.
  * <p>
  * The xmlns namespace definition for <code>gsp:</code> tags will be removed
@@ -74,7 +74,7 @@ import java.util.Map;
  *   &lt;gsp:expression&gt;greeting&lt;/gsp:expression&gt;
  *   &lt;foo:to&gt;$firstname "$nickname" $lastname&lt;/foo:to&gt;
  *   How are you today?
- * &lt;/document>
+ * &lt;/document&gt;
  * '''
  * def template = engine.createTemplate(text).make(binding)
  * println template.toString()
@@ -101,9 +101,6 @@ import java.util.Map;
  *   &lt;/init-param&gt;
  * &lt;/servlet&gt;
  * </pre>
- *
- * @author Christian Stein
- * @author Paul King
  */
 public class XmlTemplateEngine extends TemplateEngine {
 
@@ -200,7 +197,7 @@ public class XmlTemplateEngine extends TemplateEngine {
 
         protected boolean printSpecialNode(Node node) {
             Object name = node.name();
-            if (name != null && name instanceof QName) {
+            if (name instanceof QName) {
                 QName qn = (QName) name;
                 // check uri and for legacy cases just check prefix name (not recommended)
                 if (qn.getNamespaceURI().equals("http://groovy.codehaus.org/2005/gsp") || qn.getPrefix().equals("gsp")) {
@@ -245,7 +242,7 @@ public class XmlTemplateEngine extends TemplateEngine {
         public XmlWritable(Script script, Binding binding) {
             this.script = script;
             this.binding = binding;
-            this.result = new WeakReference(null);
+            this.result = new WeakReference<>(null);
         }
 
         public Writer writeTo(Writer out) {
@@ -262,7 +259,7 @@ public class XmlTemplateEngine extends TemplateEngine {
                 return result.get().toString();
             }
             String string = writeTo(new StringBuilderWriter(1024)).toString();
-            result = new WeakReference(string);
+            result = new WeakReference<>(string);
             return string;
         }
     }

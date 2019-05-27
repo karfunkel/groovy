@@ -50,6 +50,8 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.List;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedConstructor;
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedMethod;
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType;
 import static org.codehaus.groovy.ast.ClassHelper.make;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.args;
@@ -70,6 +72,7 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.ifElseS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.isInstanceOfX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.isOrImplements;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.localVarX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.propX;
@@ -80,8 +83,6 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.varX;
 
 /**
  * Handles generation of code for the @AutoClone annotation.
- *
- * @author Paul King
  */
 @GroovyASTTransformation(phase = CompilePhase.CANONICALIZATION)
 public class AutoCloneASTTransformation extends AbstractASTTransformation {
@@ -134,7 +135,7 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
     private void createCloneSerialization(ClassNode cNode) {
         final BlockStatement body = new BlockStatement();
         // def baos = new ByteArrayOutputStream()
-        final Expression baos = varX("baos");
+        final Expression baos = localVarX("baos");
         body.addStatement(declS(baos, ctorX(BAOS_TYPE)));
 
         // baos.withObjectOutputStream{ it.writeObject(this) }
@@ -145,7 +146,7 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
         body.addStatement(stmt(callX(baos, "withObjectOutputStream", args(writeClos))));
 
         // def bais = new ByteArrayInputStream(baos.toByteArray())
-        final Expression bais = varX("bais");
+        final Expression bais = localVarX("bais");
         body.addStatement(declS(bais, ctorX(BAIS_TYPE, args(callX(baos, "toByteArray")))));
 
         // return bais.withObjectInputStream(getClass().classLoader){ (<type>) it.readObject() }
@@ -158,7 +159,7 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
 
         new VariableScopeVisitor(sourceUnit, true).visitClass(cNode);
         ClassNode[] exceptions = {make(CloneNotSupportedException.class)};
-        cNode.addMethod("clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, body);
+        addGeneratedMethod(cNode, "clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, body);
     }
 
     private static void createCloneCopyConstructor(ClassNode cNode, List<FieldNode> list, List<String> excludes) {
@@ -166,7 +167,7 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
             // add no-arg constructor
             BlockStatement noArgBody = new BlockStatement();
             noArgBody.addStatement(EmptyStatement.INSTANCE);
-            cNode.addConstructor(ACC_PUBLIC, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, noArgBody);
+            addGeneratedConstructor(cNode, ACC_PUBLIC, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, noArgBody);
         }
         boolean hasThisCons = false;
         for (ConstructorNode consNode : cNode.getDeclaredConstructors()) {
@@ -200,10 +201,10 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
                     initBody.addStatement(ifElseS(isInstanceOfX(direct, CLONEABLE_TYPE), assignClonedDynamic, assignDirect));
                 }
             }
-            cNode.addConstructor(ACC_PROTECTED, params(initParam), ClassNode.EMPTY_ARRAY, initBody);
+            addGeneratedConstructor(cNode, ACC_PROTECTED, params(initParam), ClassNode.EMPTY_ARRAY, initBody);
         }
         ClassNode[] exceptions = {make(CloneNotSupportedException.class)};
-        cNode.addMethod("clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, block(stmt(ctorX(cNode, args(varX("this"))))));
+        addGeneratedMethod(cNode, "clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, block(stmt(ctorX(cNode, args(varX("this"))))));
     }
 
     private static boolean isCloneableType(ClassNode fieldType) {
@@ -225,12 +226,12 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
     private static void createSimpleClone(ClassNode cNode, List<FieldNode> fieldNodes, List<String> excludes) {
         if (cNode.getDeclaredConstructors().isEmpty()) {
             // add no-arg constructor
-            cNode.addConstructor(ACC_PUBLIC, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, block(EmptyStatement.INSTANCE));
+            addGeneratedConstructor(cNode, ACC_PUBLIC, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, block(EmptyStatement.INSTANCE));
         }
         addSimpleCloneHelperMethod(cNode, fieldNodes, excludes);
-        final Expression result = varX("_result", cNode);
+        final Expression result = localVarX("_result");
         ClassNode[] exceptions = {make(CloneNotSupportedException.class)};
-        cNode.addMethod("clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, block(
+        addGeneratedMethod(cNode, "clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, block(
             declS(result, ctorX(cNode)),
             stmt(callThisX("cloneOrCopyMembers", args(result))),
             returnS(result)));
@@ -262,13 +263,16 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
             }
         }
         ClassNode[] exceptions = {make(CloneNotSupportedException.class)};
-        cNode.addMethod("cloneOrCopyMembers", ACC_PROTECTED, ClassHelper.VOID_TYPE, params(methodParam), exceptions, methodBody);
+        addGeneratedMethod(cNode, "cloneOrCopyMembers", ACC_PROTECTED, ClassHelper.VOID_TYPE, params(methodParam), exceptions, methodBody);
     }
 
     private static void createClone(ClassNode cNode, List<FieldNode> fieldNodes, List<String> excludes) {
         final BlockStatement body = new BlockStatement();
-        final Expression result = varX("_result", cNode);
+
+        // def _result = super.clone() as cNode
+        final Expression result = localVarX("_result");
         body.addStatement(declS(result, castX(cNode, callSuperX("clone"))));
+
         for (FieldNode fieldNode : fieldNodes) {
             if (excludes != null && excludes.contains(fieldNode.getName())) continue;
             ClassNode fieldType = fieldNode.getType();
@@ -282,9 +286,12 @@ public class AutoCloneASTTransformation extends AbstractASTTransformation {
                 body.addStatement(ifS(isInstanceOfX(fieldExpr, CLONEABLE_TYPE), doCloneDynamic));
             }
         }
+
+        // return _result
         body.addStatement(returnS(result));
+
         ClassNode[] exceptions = {make(CloneNotSupportedException.class)};
-        cNode.addMethod("clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, body);
+        addGeneratedMethod(cNode, "clone", ACC_PUBLIC, GenericsUtils.nonGeneric(cNode), Parameter.EMPTY_ARRAY, exceptions, body);
     }
 
     private static AutoCloneStyle getStyle(AnnotationNode node, String name) {

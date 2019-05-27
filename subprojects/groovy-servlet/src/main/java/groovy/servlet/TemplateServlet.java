@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Writer;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.Date;
 import java.util.Map;
@@ -102,8 +103,6 @@ import java.util.WeakHashMap;
  *   groovy.source.encoding
  * </pre>
  *
- * @author Christian Stein
- * @author Guillaume Laforge
  * @see TemplateServlet#setVariables(ServletBinding)
  */
 public class TemplateServlet extends AbstractHttpServlet {
@@ -111,8 +110,6 @@ public class TemplateServlet extends AbstractHttpServlet {
     /**
      * Simple cache entry. If a file is supplied, then the entry is validated against
      * last modified and length attributes of the specified file.
-     *
-     * @author Christian Stein
      */
     private static class TemplateCacheEntry {
 
@@ -389,12 +386,12 @@ public class TemplateServlet extends AbstractHttpServlet {
             return new SimpleTemplateEngine();
         }
         try {
-            return (TemplateEngine) Class.forName(name).newInstance();
-        } catch (InstantiationException e) {
+            return (TemplateEngine) Class.forName(name).getDeclaredConstructor().newInstance();
+        } catch (InstantiationException | InvocationTargetException e) {
             log("Could not instantiate template engine: " + name, e);
         } catch (IllegalAccessException e) {
             log("Could not access template engine class: " + name, e);
-        } catch (ClassNotFoundException e) {
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
             log("Could not find template engine class: " + name, e);
         }
         return null;

@@ -40,10 +40,7 @@ import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- *
- * @author Evan "Hippy" Slatis
- */
+@Deprecated
 public class StructuredSyntaxDocumentFilter extends DocumentFilter {
     
     public static final String TAB_REPLACEMENT = "    ";
@@ -135,7 +132,7 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
     private MultiLineRun getMultiLineRun(int offset) {
         MultiLineRun ml = null;
         if (offset > 0) {
-            Integer os = Integer.valueOf(offset);
+            Integer os = offset;
 
             SortedSet set = mlTextRunSet.headSet(os);
             if (!set.isEmpty()) {
@@ -208,8 +205,8 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
             
             // clean the tree by ensuring multi line styles are reset in area
             // of parsing
-            SortedSet set = mlTextRunSet.subSet(Integer.valueOf(offset),
-                                                Integer.valueOf(offset + length));
+            SortedSet set = mlTextRunSet.subSet(offset,
+                    offset + length);
             if (set != null) {
                 set.clear();
             }
@@ -567,8 +564,8 @@ public class StructuredSyntaxDocumentFilter extends DocumentFilter {
         }
         
         private int valueOf(Object obj) {
-            return obj instanceof Integer ? 
-                    ((Integer)obj).intValue() : 
+            return obj instanceof Integer ?
+                    (Integer) obj :
                     (obj instanceof MultiLineRun) ?
                         ((MultiLineRun)obj).start() :
                         ((Position)obj).getOffset();

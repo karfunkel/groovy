@@ -25,9 +25,6 @@ import org.codehaus.groovy.ast.stmt.ReturnStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.runtime.InvokerHelper;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class MethodTest extends TestSupport {
 
     public void testMethods() throws Exception {
@@ -49,7 +46,7 @@ public class MethodTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Created instance of class: " + bean, bean != null);
 
         assertCallMethod(bean, "a", "calledA");

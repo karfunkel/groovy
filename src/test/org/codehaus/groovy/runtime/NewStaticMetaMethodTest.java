@@ -24,9 +24,6 @@ import org.codehaus.groovy.runtime.metaclass.NewInstanceMetaMethod;
 
 import java.lang.reflect.Method;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class NewStaticMetaMethodTest extends TestCase {
 
     public void testInvokeMetaMethod() throws Exception {
@@ -42,7 +39,7 @@ public class NewStaticMetaMethodTest extends TestCase {
     }
 
     public void testInvokeDefaultGroovyMethod() throws Exception {
-        Method method = StringGroovyMethods.class.getMethod("plus", new Class[]{String.class, Object.class});
+        Method method = StringGroovyMethods.class.getMethod("plus", new Class[]{CharSequence.class, Object.class});
         assertTrue("Should have found a method", method != null);
 
         NewInstanceMetaMethod metaMethod = createNewMetaMethod(method);

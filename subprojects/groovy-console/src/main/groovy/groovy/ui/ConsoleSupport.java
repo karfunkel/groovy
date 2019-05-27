@@ -29,9 +29,8 @@ import java.awt.*;
 
 /**
  * Base class for console
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public abstract class ConsoleSupport {
 
     Style promptStyle;

@@ -41,12 +41,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.groovy.util.SystemUtil.getBooleanSafe;
+
 public class WriterController {
     private static final String GROOVY_LOG_CLASSGEN = "groovy.log.classgen";
-    private static final boolean LOG_CLASSGEN;
-    static {
-        LOG_CLASSGEN = Boolean.valueOf(System.getProperty(GROOVY_LOG_CLASSGEN));
-    }
+    private final boolean LOG_CLASSGEN = getBooleanSafe(GROOVY_LOG_CLASSGEN);
     private AsmClassGenerator acg;
     private MethodVisitor methodVisitor;
     private CompileStack compileStack;
@@ -76,6 +75,8 @@ public class WriterController {
     private int lineNumber = -1;
     private int helperMethodIndex = 0;
     private List<String> superMethodNames = new ArrayList<String>();
+    private MethodPointerExpressionWriter methodPointerExpressionWriter;
+    private MethodReferenceExpressionWriter methodReferenceExpressionWriter;
 
     public void init(AsmClassGenerator asmClassGenerator, GeneratorContext gcon, ClassVisitor cv, ClassNode cn) {
         CompilerConfiguration config = cn.getCompileUnit().getConfig();
@@ -96,7 +97,7 @@ public class WriterController {
         this.outermostClass = null;
         this.internalClassName = BytecodeHelper.getClassInternalName(classNode);
 
-        bytecodeVersion = chooseBytecodeVersion(invokedynamic, config.getTargetBytecode());
+        bytecodeVersion = chooseBytecodeVersion(invokedynamic, config.isPreviewFeatures(), config.getTargetBytecode());
 
         if (invokedynamic) {
             this.invocationWriter = new InvokeDynamicWriter(this);
@@ -122,6 +123,8 @@ public class WriterController {
         this.assertionWriter = new AssertionWriter(this);
         this.closureWriter = new ClosureWriter(this);
         this.lambdaWriter = new LambdaWriter(this);
+        this.methodPointerExpressionWriter = new MethodPointerExpressionWriter(this);
+        this.methodReferenceExpressionWriter = new MethodReferenceExpressionWriter(this);
         this.internalBaseClassName = BytecodeHelper.getClassInternalName(classNode.getSuperClass());
         this.acg = asmClassGenerator;
         this.sourceUnit = acg.getSourceUnit();
@@ -145,18 +148,15 @@ public class WriterController {
         }
         return new LoggableClassVisitor(cv);
     }
-    private static int chooseBytecodeVersion(final boolean invokedynamic, final String targetBytecode) {
-        if (invokedynamic) {
-            if (CompilerConfiguration.JDK7.equals(targetBytecode)) {
-                return Opcodes.V1_7;
-            }
 
+    private static int chooseBytecodeVersion(final boolean invokedynamic, final boolean previewFeatures, final String targetBytecode) {
+        Integer bytecodeVersion = CompilerConfiguration.JDK_TO_BYTECODE_VERSION_MAP.get(targetBytecode);
+
+        if (invokedynamic && bytecodeVersion < Opcodes.V1_8) {
             return Opcodes.V1_8;
         } else {
-            Integer bytecodeVersion = CompilerConfiguration.JDK_TO_BYTECODE_VERSION_MAP.get(targetBytecode);
-
             if (null != bytecodeVersion) {
-                return bytecodeVersion;
+                return previewFeatures ? bytecodeVersion | Opcodes.V_PREVIEW : bytecodeVersion;
             }
         }
 
@@ -221,6 +221,14 @@ public class WriterController {
         } else {
             return binaryExpHelper;
         }
+    }
+
+    public MethodPointerExpressionWriter getMethodPointerExpressionWriter() {
+        return methodPointerExpressionWriter;
+    }
+
+    public MethodReferenceExpressionWriter getMethodReferenceExpressionWriter() {
+        return methodReferenceExpressionWriter;
     }
 
     public UnaryExpressionHelper getUnaryExpressionHelper() {
@@ -405,4 +413,5 @@ public class WriterController {
     public List<String> getSuperMethodNames() {
         return superMethodNames;
     }
+
 }

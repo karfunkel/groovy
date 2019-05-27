@@ -20,7 +20,9 @@ package org.codehaus.groovy.runtime.m12n
 
 import org.codehaus.groovy.runtime.DefaultGroovyStaticMethods
 
-public class ExtensionModuleHelperForTests {
+import static groovy.test.GroovyAssert.isAtLeastJdk
+
+class ExtensionModuleHelperForTests {
     static void doInFork(String code) {
         doInFork("GroovyTestCase", code)
     }
@@ -40,12 +42,7 @@ public class ExtensionModuleHelperForTests {
         Set<String> cp = System.getProperty("java.class.path").split(File.pathSeparator) as Set
         cp << baseDir.absolutePath
 
-        boolean jdk9 = false;
-        try {
-            jdk9 = new BigDecimal(System.getProperty("java.specification.version")).compareTo(new BigDecimal("9.0")) >= 0
-        } catch (e) {
-            // ignore
-        }
+        boolean jdk9 = isAtLeastJdk('9.0')
 
         def ant = new AntBuilder()
         def allowed = [
@@ -61,10 +58,6 @@ public class ExtensionModuleHelperForTests {
                         cp.each {
                             pathelement location: it
                         }
-                    }
-                    if (jdk9) {
-                        jvmarg(value: '--add-modules')
-                        jvmarg(value: 'java.xml.bind')
                     }
                 }
             }

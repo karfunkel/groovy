@@ -32,10 +32,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 
-
-/**
- * @author Evan "Hippy" Slatis
- */
+@Deprecated
 public class GroovyFilter extends StructuredSyntaxDocumentFilter {
 
     // java tab policy action

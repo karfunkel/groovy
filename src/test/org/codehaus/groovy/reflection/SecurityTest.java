@@ -31,6 +31,8 @@ import java.security.Permission;
 import java.security.Permissions;
 import java.security.ProtectionDomain;
 
+import static groovy.test.GroovyAssert.isAtLeastJdk;
+
 public class SecurityTest extends GroovyTestCase {
 
     @SuppressWarnings("unused")
@@ -128,7 +130,7 @@ public class SecurityTest extends GroovyTestCase {
         cachedMethodUnderTest = createCachedMethod("publicMethod");
         System.setSecurityManager(restrictiveSecurityManager);
         assertEquals("publicMethod", cachedMethodUnderTest.setAccessible().getName());
-        assertEquals("publicMethod", cachedMethodUnderTest.getCachedMethod().getName());
+        assertEquals("publicMethod", cachedMethodUnderTest.getName());
     }
 
     public void testAccessesPublicFieldsWithoutChecks() throws Exception {
@@ -156,7 +158,7 @@ public class SecurityTest extends GroovyTestCase {
         cachedMethodUnderTest = createCachedMethod("privateMethod");
         System.setSecurityManager(null);
         assertEquals("privateMethod", cachedMethodUnderTest.setAccessible().getName());
-        assertEquals("privateMethod", cachedMethodUnderTest.getCachedMethod().getName());
+        assertEquals("privateMethod", cachedMethodUnderTest.getName());
     }
 
     public void testChecksReflectPermissionForInvokeOnPrivateMethods() throws Exception {
@@ -216,7 +218,7 @@ public class SecurityTest extends GroovyTestCase {
 
     public void testChecksReflectPermissionForInvokeOnPackagePrivateMethodsInRestrictedJavaPackages() throws Exception {
         // FIX_JDK9 remove this exemption for JDK9
-        if (new BigDecimal(System.getProperty("java.specification.version")).compareTo(new BigDecimal("9.0")) >= 0) {
+        if (isAtLeastJdk("9.0")) {
             return;
         }
         cachedMethodUnderTest = createCachedMethod(ClassLoader.class, "getBootstrapClassPath", new Class[0]);

@@ -18,6 +18,8 @@
  */
 package gdk
 
+import groovy.test.GroovyTestCase
+
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.LocalDate
@@ -72,20 +74,20 @@ class WorkingWithDateTimeTypesTest extends GroovyTestCase {
         // tag::date_upto_date[]
         def start = LocalDate.now()
         def end = start + 6 // 6 days later
-        start.upto(end) { date ->
-            println date.dayOfWeek
+        start.upto(end) { next ->
+            println next.dayOfWeek
         }
         // end::date_upto_date[]
     }
 
     void testUptoCustomUnit() {
         // tag::date_upto_date_by_months[]
-        def start = LocalDate.of(2018, Month.MARCH, 2)
+        def start = LocalDate.of(2018, Month.MARCH, 1)
         def end = start + 1 // 1 day later
 
         int iterationCount = 0
-        start.upto(end, ChronoUnit.MONTHS) { date ->
-            println date
+        start.upto(end, ChronoUnit.MONTHS) { next ->
+            println next
             ++iterationCount
         }
 

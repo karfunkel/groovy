@@ -23,9 +23,10 @@ import java.util.Set;
 
 /**
  * An aggregation of multiple bindings
- * @author Danno Ferrin
+ *
  * @since Groovy 1.6
  */
+@Deprecated
 public class AggregateBinding implements BindingUpdatable {
 
     protected  boolean bound;

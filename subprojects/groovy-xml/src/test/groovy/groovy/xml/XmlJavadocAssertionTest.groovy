@@ -18,8 +18,9 @@
  */
 package groovy.xml
 
-import org.junit.runners.Suite
+import groovy.test.JavadocAssertionTestSuite
 import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
 @RunWith(Suite)
 @Suite.SuiteClasses(JavadocAssertionTestSuite)

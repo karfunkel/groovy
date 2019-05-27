@@ -22,6 +22,7 @@ import groovy.transform.Generated;
 import org.codehaus.groovy.ast.ClassHelper;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.ConstructorNode;
+import org.codehaus.groovy.ast.FieldNode;
 import org.codehaus.groovy.ast.MethodNode;
 import org.codehaus.groovy.ast.Parameter;
 import org.codehaus.groovy.ast.PropertyNode;
@@ -29,15 +30,20 @@ import org.codehaus.groovy.ast.expr.Expression;
 import org.codehaus.groovy.ast.expr.MapExpression;
 import org.codehaus.groovy.ast.expr.SpreadExpression;
 import org.codehaus.groovy.ast.expr.TupleExpression;
+import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.transform.AbstractASTTransformation;
 
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import static org.apache.groovy.ast.tools.AnnotatedNodeUtils.hasAnnotation;
+import static org.apache.groovy.ast.tools.AnnotatedNodeUtils.markAsGenerated;
 import static org.codehaus.groovy.ast.ClassHelper.boolean_TYPE;
 
 /**
@@ -69,6 +75,63 @@ public class ClassNodeUtils {
             return sb.toString();
         }
         return cNode.getName();
+    }
+
+    /**
+     * Add a method that is marked as @Generated.
+     *
+     * @see ClassNode#addMethod(String, int, ClassNode, Parameter[], ClassNode[], Statement)
+     */
+    public static MethodNode addGeneratedMethod(ClassNode cNode, String name,
+                                int modifiers,
+                                ClassNode returnType,
+                                Parameter[] parameters,
+                                ClassNode[] exceptions,
+                                Statement code) {
+        MethodNode result = cNode.addMethod(name, modifiers, returnType, parameters, exceptions, code);
+        markAsGenerated(cNode, result);
+        return result;
+    }
+
+    /**
+     * Add a method that is marked as @Generated.
+     *
+     * @see ClassNode#addMethod(MethodNode)
+     */
+    public static void addGeneratedMethod(ClassNode cNode, MethodNode mNode) {
+        cNode.addMethod(mNode);
+        markAsGenerated(cNode, mNode);
+    }
+
+    /**
+     * Add an inner class that is marked as @Generated.
+     *
+     * @see org.codehaus.groovy.ast.ModuleNode#addClass(ClassNode)
+     */
+    public static void addGeneratedInnerClass(ClassNode cNode, ClassNode inner) {
+        cNode.getModule().addClass(inner);
+        markAsGenerated(cNode, inner);
+    }
+
+    /**
+     * Add a method that is marked as @Generated.
+     *
+     * @see ClassNode#addConstructor(int, Parameter[], ClassNode[], Statement)
+     */
+    public static ConstructorNode addGeneratedConstructor(ClassNode classNode, int modifiers, Parameter[] parameters, ClassNode[] exceptions, Statement code) {
+        ConstructorNode consNode = classNode.addConstructor(modifiers, parameters, exceptions, code);
+        markAsGenerated(classNode, consNode);
+        return consNode;
+    }
+
+    /**
+     * Add a method that is marked as @Generated.
+     *
+     * @see ClassNode#addConstructor(ConstructorNode)
+     */
+    public static void addGeneratedConstructor(ClassNode classNode, ConstructorNode consNode) {
+        classNode.addConstructor(consNode);
+        markAsGenerated(classNode, consNode);
     }
 
     /**
@@ -320,10 +383,31 @@ public class ClassNodeUtils {
      * @throws NullPointerException if either of the given nodes are null
      */
     public static boolean samePackageName(ClassNode first, ClassNode second) {
-        String firstPackage = first.getPackageName();
-        String secondPackage = second.getPackageName();
-        return (firstPackage == secondPackage)
-                || (firstPackage != null && firstPackage.equals(secondPackage));
+        return Objects.equals(first.getPackageName(), second.getPackageName());
     }
 
+    /**
+     * Return the (potentially inherited) field of the classnode.
+     *
+     * @param classNode the classnode
+     * @param fieldName the name of the field
+     * @return the field or null if not found
+     */
+    public static FieldNode getField(ClassNode classNode, String fieldName) {
+        ClassNode node = classNode;
+        Set<String> visited = new HashSet<String>();
+        while (node != null) {
+            FieldNode fn = node.getDeclaredField(fieldName);
+            if (fn != null) return fn;
+            ClassNode[] interfaces = node.getInterfaces();
+            for (ClassNode iNode : interfaces) {
+                if (visited.contains(iNode.getName())) continue;
+                FieldNode ifn = getField(iNode, fieldName);
+                visited.add(iNode.getName());
+                if (ifn != null) return ifn;
+            }
+            node = node.getSuperClass();
+        }
+        return null;
+    }
 }

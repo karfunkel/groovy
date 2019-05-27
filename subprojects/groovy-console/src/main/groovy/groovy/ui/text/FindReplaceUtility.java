@@ -35,9 +35,7 @@ import java.awt.event.TextEvent;
 import java.awt.event.TextListener;
 import java.util.EventListener;
 
-/**
- * @author Evan "Hippy" Slatis
- */
+@Deprecated
 public final class FindReplaceUtility {
 
     public static final String FIND_ACTION_COMMAND = "Find";
@@ -401,7 +399,7 @@ public final class FindReplaceUtility {
         public FindAction() {
             putValue(Action.NAME, FIND_ACTION_COMMAND);
             putValue(Action.ACTION_COMMAND_KEY, FIND_ACTION_COMMAND);
-            putValue(Action.MNEMONIC_KEY, Integer.valueOf(KeyEvent.VK_F));
+            putValue(Action.MNEMONIC_KEY, KeyEvent.VK_F);
         }
 
         public void actionPerformed(ActionEvent ae) {
@@ -436,7 +434,7 @@ public final class FindReplaceUtility {
         public ReplaceAction() {
             putValue(Action.NAME, REPLACE_ACTION_COMMAND);
             putValue(Action.ACTION_COMMAND_KEY, REPLACE_ACTION_COMMAND);
-            putValue(Action.MNEMONIC_KEY, Integer.valueOf(KeyEvent.VK_R));
+            putValue(Action.MNEMONIC_KEY, KeyEvent.VK_R);
         }
 
         public void actionPerformed(ActionEvent ae) {
@@ -483,7 +481,7 @@ public final class FindReplaceUtility {
         public ReplaceAllAction() {
             putValue(Action.NAME, REPLACE_ALL_ACTION_COMMAND);
             putValue(Action.ACTION_COMMAND_KEY, REPLACE_ALL_ACTION_COMMAND);
-            putValue(Action.MNEMONIC_KEY, Integer.valueOf(KeyEvent.VK_A));
+            putValue(Action.MNEMONIC_KEY, KeyEvent.VK_A);
         }
 
         public void actionPerformed(ActionEvent ae) {
@@ -531,7 +529,7 @@ public final class FindReplaceUtility {
         public CloseAction() {
             putValue(Action.NAME, CLOSE_ACTION_COMMAND);
             putValue(Action.ACTION_COMMAND_KEY, CLOSE_ACTION_COMMAND);
-            putValue(Action.MNEMONIC_KEY, Integer.valueOf(KeyEvent.VK_C));
+            putValue(Action.MNEMONIC_KEY, KeyEvent.VK_C);
             putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke("ESCAPE"));
         }
 

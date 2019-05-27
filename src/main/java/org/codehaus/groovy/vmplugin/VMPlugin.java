@@ -18,17 +18,18 @@
  */
 package org.codehaus.groovy.vmplugin;
 
+import groovy.lang.MetaClass;
+import groovy.lang.MetaMethod;
 import org.codehaus.groovy.ast.AnnotationNode;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.CompileUnit;
 
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Method;
 
 /**
  * Interface to access VM version based actions.
  * This interface is for internal use only!
- * 
- * @author Jochen Theodorou
  */
 public interface VMPlugin {
     void setAdditionalClassInformation(ClassNode c);
@@ -58,8 +59,38 @@ public interface VMPlugin {
 
     /**
      * Gives the version the plugin is made for
-     * @return 5 for jdk5, 6 for jdk6, 7 for jdk7, 8 for jdk8 or higher
+     * @return 7 for jdk7, 8 for jdk8, 9 for jdk9 or higher
      */
     int getVersion();
 
+    /**
+     * Check whether invoking {@link AccessibleObject#setAccessible(boolean)} on the accessible object will be completed successfully
+     *
+     * @param accessibleObject the accessible object to check
+     * @param callerClass the callerClass to invoke {@code setAccessible}
+     * @return the check result
+     */
+    boolean checkCanSetAccessible(AccessibleObject accessibleObject, Class<?> callerClass);
+
+    /**
+     * Set the {@code accessible} flag for this reflected object to {@code true}
+     * if possible.
+     *
+     * @param ao the accessible object
+     * @return {@code true} if the {@code accessible} flag is set to {@code true};
+     *         {@code false} if access cannot be enabled.
+     * @throws SecurityException if the request is denied by the security manager
+     */
+    boolean trySetAccessible(AccessibleObject ao);
+
+    /**
+     * transform meta method
+     *
+     * @param metaClass meta class
+     * @param metaMethod the original meta method
+     * @param params parameter types
+     * @param caller caller type
+     * @return the transformed meta method
+     */
+    MetaMethod transformMetaMethod(MetaClass metaClass, MetaMethod metaMethod, Class<?>[] params, Class<?> caller);
 }

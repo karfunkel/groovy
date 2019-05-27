@@ -44,10 +44,9 @@ import java.util.Map;
  * Properties and normal method invocations
  * delegate to the MBeanServer to the actual MBean.
  *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Steve Button
- * @author Paul King
+ * @deprecated Use {@link groovy.jmx.GroovyMBean}
  */
+@Deprecated
 public class GroovyMBean extends GroovyObjectSupport {
     private final MBeanServerConnection server;
     private final ObjectName name;

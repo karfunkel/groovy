@@ -21,18 +21,15 @@ package org.codehaus.groovy.ant;
 import groovy.lang.GroovyClassLoader;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DirectoryScanner;
+import org.codehaus.groovy.control.Phases;
 import org.codehaus.groovy.tools.javac.JavaStubCompilationUnit;
 
 import java.io.File;
 
 /**
  * Generates Java stubs from Groovy sources.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
-public class GenerateStubsTask
-    extends CompileTaskSupport
-{
+public class GenerateStubsTask extends CompileTaskSupport {
     @Override
     protected void compile() {
         GroovyClassLoader gcl = createClassLoader();
@@ -40,26 +37,28 @@ public class GenerateStubsTask
 
         int count = 0;
 
-        String[] list = src.list();
-        for (int i = 0; i < list.length; i++) {
-            File basedir = getProject().resolveFile(list[i]);
-            if (!basedir.exists()) {
-                throw new BuildException("Source directory does not exist: " + basedir, getLocation());
+        for (String srcPath : src.list()) {
+            File srcDir = getProject().resolveFile(srcPath);
+            if (!srcDir.exists()) {
+                throw new BuildException("Source directory does not exist: " + srcDir, getLocation());
             }
 
-            DirectoryScanner scanner = getDirectoryScanner(basedir);
-            String[] includes = scanner.getIncludedFiles();
+            DirectoryScanner scanner = getDirectoryScanner(srcDir);
 
-            log.debug("Including files from: " + basedir);
+            log.debug("Including files from: " + srcDir);
 
-            for (int j=0; j < includes.length; j++) {
-                log.debug("    "  + includes[j]);
-                
-                File file = new File(basedir, includes[j]);
-                cu.addSource(file);
+            for (String includeName : scanner.getIncludedFiles()) {
+                log.debug("    " + includeName);
 
-                // Increment the count for each non/java src we found
-                if (!includes[j].endsWith(".java")) {
+                File file = new File(srcDir, includeName);
+
+                if (isSource(includeName)) {
+                    cu.addSource(file);
+                }
+
+                // Increment the count for each groovy src we found
+                // TODO support config.getScriptExtensions()?
+                if (includeName.endsWith(config.getDefaultScriptExtension())) {
                     count++;
                 }
             }
@@ -67,13 +66,15 @@ public class GenerateStubsTask
 
         if (count > 0) {
             log.info("Generating " + count + " Java stub" + (count > 1 ? "s" : "") + " to " + destdir);
-
-            cu.compile();
-
+            cu.compile(Phases.CONVERSION); // Generate the stubs
             log.info("Generated " + cu.getStubCount() + " Java stub(s)");
-        }
-        else {
+        } else {
             log.info("No sources found for stub generation");
         }
+    }
+
+    private boolean isSource(String includeName) {
+        // TODO support config.getScriptExtensions()?
+        return includeName.endsWith(config.getDefaultScriptExtension()) || includeName.endsWith(".java");
     }
 }

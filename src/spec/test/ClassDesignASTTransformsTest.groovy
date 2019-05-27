@@ -132,8 +132,8 @@ class DelegatingWithAnnotations {
 }
 def d1 = new DelegatingWithoutAnnotations()
 def d2 = new DelegatingWithAnnotations()
-assert d1.class.getDeclaredMethod('method').annotations.length==0
-assert d2.class.getDeclaredMethod('method').annotations.length==1
+assert d1.class.getDeclaredMethod('method').annotations.length==1
+assert d2.class.getDeclaredMethod('method').annotations.length==2
 // end::delegate_example_annotations[]
         '''
 
@@ -448,4 +448,31 @@ assert GreetingService.instance.greeting('Bob') == 'Hello, Bob!'
 // end::singleton_example_lazy[]
 '''
     }
+
+    void testTailRecursive() {
+        assertScript '''
+// tag::tailrecursive[]
+import groovy.transform.CompileStatic
+import groovy.transform.TailRecursive
+
+@CompileStatic
+class Factorial {
+
+    @TailRecursive
+    static BigInteger factorial( BigInteger i, BigInteger product = 1) {
+        if( i == 1) {
+            return product
+        }
+        return factorial(i-1, product*i)
+    }
+}
+
+assert Factorial.factorial(1) == 1
+assert Factorial.factorial(3) == 6
+assert Factorial.factorial(5) == 120
+assert Factorial.factorial(50000).toString().size() == 213237 // Big number and no Stack Overflow
+// end::tailrecursive[]
+'''
+    }
+
 }

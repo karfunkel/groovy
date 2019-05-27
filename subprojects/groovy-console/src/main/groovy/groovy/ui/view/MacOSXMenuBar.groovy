@@ -18,10 +18,22 @@
  */
 package groovy.ui.view
 
+import org.codehaus.groovy.vmplugin.VMPluginFactory
+
 def handler = false
+def jdk9plus = VMPluginFactory.getPlugin().getVersion() > 8
+// TODO Desktop handlers are supposed to work cross platform, should we do version check at a higher layer
+// TODO there is also an open files handler, should we also be using that?
 if (!handler) {
     try {
-        handler = build("""
+        handler = build(jdk9plus ? """
+import java.awt.Desktop
+def handler = Desktop.getDesktop()
+handler.setAboutHandler(controller.&showAbout)
+handler.setQuitHandler(controller.&exitDesktop)
+handler.setPreferencesHandler(controller.&preferences)
+handler
+""" : """
 package groovy.ui
 
 import com.apple.mrj.*

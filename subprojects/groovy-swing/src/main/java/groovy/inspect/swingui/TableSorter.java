@@ -41,18 +41,17 @@ import java.util.Vector;
  * with the rows in a different order. The sorting algorithm used is stable
  * which means that it does not move around rows when its comparison
  * function returns 0 to denote that they are equivalent.
- *
- * @author Philip Milne
- * @author Minimal adjustments by Dierk Koenig, June 2005
  */
+@Deprecated
 public class TableSorter extends TableMap {
+    private static final int[] EMPTY_INT_ARRAY = new int[0];
     int indexes[];
     Vector sortingColumns = new Vector();
     boolean ascending = true;
     int lastSortedColumn = -1;
 
     public TableSorter() {
-        indexes = new int[0]; // For consistency.
+        indexes = EMPTY_INT_ARRAY; // For consistency.
     }
 
     public TableSorter(TableModel model) {
@@ -122,9 +121,9 @@ space and avoid unnecessary heap allocation.
 
     private static int compareBooleans(TableModel data, int row1, int column, int row2) {
         Boolean bool1 = (Boolean) data.getValueAt(row1, column);
-        boolean b1 = bool1.booleanValue();
+        boolean b1 = bool1;
         Boolean bool2 = (Boolean) data.getValueAt(row2, column);
-        boolean b2 = bool2.booleanValue();
+        boolean b2 = bool2;
 
         if (b1 == b2)
             return 0;
@@ -174,7 +173,7 @@ space and avoid unnecessary heap allocation.
     public int compare(int row1, int row2) {
         for (int level = 0; level < sortingColumns.size(); level++) {
             Integer column = (Integer) sortingColumns.elementAt(level);
-            int result = compareRowsByColumn(row1, row2, column.intValue());
+            int result = compareRowsByColumn(row1, row2, column);
             if (result != 0)
                 return ascending ? result : -result;
         }
@@ -295,7 +294,7 @@ space and avoid unnecessary heap allocation.
     public void sortByColumn(int column, boolean ascending) {
         this.ascending = ascending;
         sortingColumns.removeAllElements();
-        sortingColumns.addElement(Integer.valueOf(column));
+        sortingColumns.addElement(column);
         sort(this);
         super.tableChanged(new TableModelEvent(this));
     }

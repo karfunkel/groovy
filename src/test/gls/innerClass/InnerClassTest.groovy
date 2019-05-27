@@ -570,7 +570,7 @@ import org.codehaus.groovy.classgen.Verifier
                     if (variables[field.name]) {
                         AccessController.doPrivileged(new PrivilegedAction() {
                             @Override
-                            public Object run() {
+                            Object run() {
                                 boolean wasAccessible = field.isAccessible()
                                 try {
                                     field.accessible = true
@@ -727,6 +727,27 @@ import org.codehaus.groovy.classgen.Verifier
             null
         '''
     }
+
+    //GROOVY-8914
+    void testNestedClassInheritingFromNestedClass() {
+        // control
+        assert new Outer8914.Nested()
+
+        assertScript '''
+            class OuterReferencingPrecompiled {
+                static class Nested extends gls.innerClass.Parent8914.Nested {}
+            }
+            assert new OuterReferencingPrecompiled.Nested()
+        '''
+    }
+}
+
+class Parent8914 {
+    static class Nested {}
+}
+
+class Outer8914 {
+    static class Nested extends Parent8914.Nested {}
 }
 
 class MyOuterClass4028 {

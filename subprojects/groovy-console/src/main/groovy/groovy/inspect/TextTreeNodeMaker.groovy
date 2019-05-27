@@ -18,13 +18,14 @@
  */
 /**
  * A factory class for plain text nodes for use in the AST tree made by ASTBrowser 
- * 
- * @author Roshan Dawrani
  */
 package groovy.inspect
 
 import groovy.inspect.swingui.AstBrowserNodeMaker
+import groovy.transform.CompileStatic
 
+@CompileStatic
+@Deprecated
 class TextTreeNodeMaker implements AstBrowserNodeMaker<TextNode> {
     TextNode makeNode(Object userObject) {
         new TextNode(userObject)

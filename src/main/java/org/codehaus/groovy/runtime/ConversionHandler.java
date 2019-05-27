@@ -32,14 +32,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * This class is a general adapter to map a call to a Java interface
  * to a given delegate.
- *
- * @author Ben Yu
- * @author <a href="mailto:blackdrag@gmx.org">Jochen Theodorou</a>
  */
 public abstract class ConversionHandler implements InvocationHandler, Serializable {
     private final Object delegate;
@@ -102,10 +100,9 @@ public abstract class ConversionHandler implements InvocationHandler, Serializab
      * @see InvocationHandler#invoke(java.lang.Object, java.lang.reflect.Method, java.lang.Object[])
      */
     public Object invoke(final Object proxy, Method method, Object[] args) throws Throwable {
-        if (handleCache != null && isDefaultMethod(method)) {
+        if (handleCache != null && isDefaultMethod(method) && !defaultOverridden(method)) {
             final VMPlugin plugin = VMPluginFactory.getPlugin();
             Object handle = handleCache.computeIfAbsent(method, m -> plugin.getInvokeSpecialHandle(m, proxy));
-
             return plugin.invokeHandle(handle, args);
         }
 
@@ -129,6 +126,10 @@ public abstract class ConversionHandler implements InvocationHandler, Serializab
         } catch (InvocationTargetException ite) {
             throw ite.getTargetException();
         }
+    }
+
+    private boolean defaultOverridden(Method method) {
+        return delegate instanceof Map && ((Map) delegate).containsKey(method.getName());
     }
 
     protected boolean isDefaultMethod(Method method) {

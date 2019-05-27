@@ -30,9 +30,8 @@ import java.util.List;
 
 /**
  * A default table model made up of PropertyModels on a Value model.
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public class DefaultTableModel extends AbstractTableModel {
 
     private ValueModel rowModel;

@@ -23,9 +23,8 @@ import org.codehaus.groovy.runtime.InvokerHelper
 
 /**
  * Support for simple completors.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
+@Deprecated
 class SimpleCompletor implements Completer {
 
     SortedSet<String> candidates

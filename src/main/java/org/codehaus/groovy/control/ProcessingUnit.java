@@ -26,18 +26,16 @@ import java.security.PrivilegedAction;
 /**
  * A base class for data structures that can collect messages and errors
  * during processing.
- *
- * @author <a href="mailto:cpoirier@dreaming.org">Chris Poirier</a>
  */
-
 public abstract class ProcessingUnit {
 
     /**
      * The current phase
      */
-    protected int phase;
+    protected int phase = Phases.INITIALIZATION;
+
     /**
-     * Set true if phase is finished
+     * True if phase is finished
      */
     protected boolean phaseComplete;
 
@@ -45,136 +43,118 @@ public abstract class ProcessingUnit {
      * Configuration and other settings that control processing
      */
     protected CompilerConfiguration configuration;
-  
+
     /**
      * The ClassLoader to use during processing
      */
     protected GroovyClassLoader classLoader;
-    
+
     /**
      * a helper to share errors and report them
      */
     protected ErrorCollector errorCollector;
 
-
     /**
-     * Initialize the ProcessingUnit to the empty state.
+     * Initializes the ProcessingUnit to the empty state.
      */
-
-    public ProcessingUnit(CompilerConfiguration configuration, GroovyClassLoader classLoader, ErrorCollector er) {
-
-        this.phase = Phases.INITIALIZATION;
-        this.configuration = configuration;
-        this.setClassLoader(classLoader);
-        configure((configuration == null ? new CompilerConfiguration() : configuration));
-        if (er==null) er = new ErrorCollector(getConfiguration());
-        this.errorCollector = er;
+    public ProcessingUnit(final CompilerConfiguration configuration, final GroovyClassLoader classLoader, final ErrorCollector errorCollector) {
+        setConfiguration(configuration != null ? configuration : CompilerConfiguration.DEFAULT);
+        setClassLoader(classLoader);
+        this.errorCollector = errorCollector != null ? errorCollector : new ErrorCollector(getConfiguration());
+        configure(getConfiguration());
     }
-
 
     /**
      * Reconfigures the ProcessingUnit.
      */
     public void configure(CompilerConfiguration configuration) {
-        this.configuration = configuration;
+        setConfiguration(configuration);
     }
 
-
+    /**
+     * Get the CompilerConfiguration for this ProcessingUnit.
+     */
     public CompilerConfiguration getConfiguration() {
         return configuration;
     }
 
-    public void setConfiguration(CompilerConfiguration configuration) {
+    /**
+     * Sets the CompilerConfiguration for this ProcessingUnit.
+     */
+    public final void setConfiguration(CompilerConfiguration configuration) {
         this.configuration = configuration;
     }
 
     /**
      * Returns the class loader in use by this ProcessingUnit.
      */
-
     public GroovyClassLoader getClassLoader() {
         return classLoader;
     }
 
-
     /**
      * Sets the class loader for use by this ProcessingUnit.
      */
-
     public void setClassLoader(final GroovyClassLoader loader) {
-        // Classloaders should only be created inside doPrivileged block
-        // This code creates a classloader, which needs permission if a security manage is installed.
-        // If this code might be invoked by code that does not have security permissions, then the classloader creation needs to occur inside a doPrivileged block.
-        this.classLoader = AccessController.doPrivileged(new PrivilegedAction<GroovyClassLoader>() {
+        // ClassLoaders should only be created inside a doPrivileged block in case
+        // this method is invoked by code that does not have security permissions.
+        this.classLoader = loader != null ? loader : AccessController.doPrivileged(new PrivilegedAction<GroovyClassLoader>() {
             public GroovyClassLoader run() {
                 ClassLoader parent = Thread.currentThread().getContextClassLoader();
                 if (parent == null) parent = ProcessingUnit.class.getClassLoader();
-                return loader == null ? new GroovyClassLoader(parent, configuration) : loader;
+                return new GroovyClassLoader(parent, getConfiguration());
             }
         });
     }
 
-
-    /**
-     * Returns the current phase.
-     */
-
-    public int getPhase() {
-        return this.phase;
-    }
-
-
-    /**
-     * Returns the description for the current phase.
-     */
-
-    public String getPhaseDescription() {
-        return Phases.getDescription(this.phase);
-    }
-
     /**
      * Errors found during the compilation should be reported through the ErrorCollector.
-     * @return
-     *      the ErrorCollector for this ProcessingUnit
      */
     public ErrorCollector getErrorCollector() {
         return errorCollector;
     }
-    
-    //---------------------------------------------------------------------------
-    // PROCESSING
-
 
     /**
-     * Marks the current phase complete and processes any
-     * errors.
+     * Returns the current phase.
      */
+    public int getPhase() {
+        return phase;
+    }
 
-    public void completePhase() throws CompilationFailedException {       
+    /**
+     * Returns the description for the current phase.
+     */
+    public String getPhaseDescription() {
+        return Phases.getDescription(phase);
+    }
+
+    public boolean isPhaseComplete() {
+        return phaseComplete;
+    }
+
+    /**
+     * Marks the current phase complete and processes any errors.
+     */
+    public void completePhase() throws CompilationFailedException {
         errorCollector.failIfErrors();
         phaseComplete = true;
     }
 
-
     /**
-     * A synonym for <code>gotoPhase( phase + 1 )</code>.
+     * A synonym for <code>gotoPhase(getPhase() + 1)</code>.
      */
     public void nextPhase() throws CompilationFailedException {
-        gotoPhase(this.phase + 1);
+        gotoPhase(phase + 1);
     }
-
 
     /**
-     * Wraps up any pending operations for the current phase
-     * and switches to the next phase.
+     * Wraps up any pending operations for the current phase and switches to the given phase.
      */
     public void gotoPhase(int phase) throws CompilationFailedException {
-        if (!this.phaseComplete) {
+        if (!phaseComplete) {
             completePhase();
         }
-
         this.phase = phase;
-        this.phaseComplete = false;
+        phaseComplete = false;
     }
-
 }

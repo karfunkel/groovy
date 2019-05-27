@@ -20,6 +20,7 @@ package groovy.inspect.swingui
 
 import groovy.text.GStringTemplateEngine
 import groovy.text.Template
+import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import org.apache.groovy.io.StringBuilderWriter
 import org.codehaus.groovy.GroovyBugError
@@ -52,11 +53,13 @@ import org.codehaus.groovy.ast.expr.ElvisOperatorExpression
 import org.codehaus.groovy.ast.expr.Expression
 import org.codehaus.groovy.ast.expr.FieldExpression
 import org.codehaus.groovy.ast.expr.GStringExpression
+import org.codehaus.groovy.ast.expr.LambdaExpression
 import org.codehaus.groovy.ast.expr.ListExpression
 import org.codehaus.groovy.ast.expr.MapEntryExpression
 import org.codehaus.groovy.ast.expr.MapExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.MethodPointerExpression
+import org.codehaus.groovy.ast.expr.MethodReferenceExpression
 import org.codehaus.groovy.ast.expr.NamedArgumentListExpression
 import org.codehaus.groovy.ast.expr.NotExpression
 import org.codehaus.groovy.ast.expr.PostfixExpression
@@ -111,6 +114,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * The String label of a tree node is defined by classname in AstBrowserProperties.properties.
  */
+@Deprecated
 class ScriptToTreeNodeAdapter {
 
     static Properties classNameToStringForm
@@ -228,9 +232,9 @@ class ScriptToTreeNodeAdapter {
                     // instead reference the value through the leftExpression property, which is the same
                     if (node instanceof DeclarationExpression &&
                             (name == 'variableExpression' || name == 'tupleExpression')) {
-                        value = node.leftExpression.toString()
+                        value = toString(node.leftExpression)
                     } else {
-                        value = it.getProperty(node).toString()
+                        value = toString(it.getProperty(node))
                     }
                 } catch (GroovyBugError reflectionArtefact) {
                     // compiler throws error if it thinks a field is being accessed
@@ -242,6 +246,12 @@ class ScriptToTreeNodeAdapter {
                 [name, value, type]
             }?.
             sort { it[0] }
+    }
+
+    // GROOVY-8339: to avoid illegal access to a non-visible implementation class - can be removed if a more general solution is found
+    @CompileStatic
+    String toString(Object o) {
+        o.toString()
     }
 
     /**
@@ -264,8 +274,8 @@ class ScriptToTreeNodeAdapter {
 
 /**
  * This Node Operation builds up a root tree node for the viewer.
- * @author Hamlet D'Arcy
  */
+@Deprecated
 class TreeNodeBuildingNodeOperation extends PrimaryClassNodeOperation {
 
     final root
@@ -455,10 +465,9 @@ class TreeNodeBuildingNodeOperation extends PrimaryClassNodeOperation {
 
 /**
 * This AST visitor builds up a TreeNode.
- *
- * @author Hamlet D'Arcy
 */
 @PackageScope
+@Deprecated
 class TreeNodeBuildingVisitor extends CodeVisitorSupport {
 
     def currentNode
@@ -635,8 +644,17 @@ class TreeNodeBuildingVisitor extends CodeVisitorSupport {
     @Override
     void visitClosureExpression(ClosureExpression node) {
         addNode(node, ClosureExpression, { 
-          it.parameters?.each { parameter -> visitParameter(parameter) }
-          super.visitClosureExpression(it) 
+            it.parameters?.each { parameter -> visitParameter(parameter) }
+            super.visitClosureExpression(it)
+        })
+    }
+
+    @Override
+    void visitLambdaExpression(LambdaExpression node) {
+        addNode(node, LambdaExpression, {
+            // params will be catered for by super call
+            //it.parameters?.each { parameter -> visitParameter(parameter) }
+            super.visitLambdaExpression(it)
         })
     }
 
@@ -645,9 +663,9 @@ class TreeNodeBuildingVisitor extends CodeVisitorSupport {
      */
     void visitParameter(Parameter node) {
         addNode(node, Parameter, {
-          if (node.initialExpression) {
-            node.initialExpression?.visit(this)
-          }
+            if (node.initialExpression) {
+                node.initialExpression?.visit(this)
+            }
         })
     }
 
@@ -694,6 +712,11 @@ class TreeNodeBuildingVisitor extends CodeVisitorSupport {
     @Override
     void visitMethodPointerExpression(MethodPointerExpression node) {
         addNode(node, MethodPointerExpression, { super.visitMethodPointerExpression(it) })
+    }
+
+    @Override
+    void visitMethodReferenceExpression(MethodReferenceExpression node) {
+        addNode(node, MethodReferenceExpression, { super.visitMethodReferenceExpression(it) })
     }
 
     @Override

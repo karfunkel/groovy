@@ -43,6 +43,7 @@ import org.codehaus.groovy.vmplugin.VMPluginFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,7 +54,7 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * A registry of MetaClass instances which caches introspection &
+ * A registry of MetaClass instances which caches introspection and
  * reflection information and allows methods to be dynamically added to
  * existing classes at runtime
  */
@@ -63,6 +64,8 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
      */
     @Deprecated
     public static final String MODULE_META_INF_FILE = "META-INF/services/org.codehaus.groovy.runtime.ExtensionModule";
+    private static final MetaClass[] EMPTY_METACLASS_ARRAY = new MetaClass[0];
+    private static final MetaClassRegistryChangeEventListener[] EMPTY_METACLASSREGISTRYCHANGEEVENTLISTENER_ARRAY = new MetaClassRegistryChangeEventListener[0];
 
     private final boolean useAccessible;
 
@@ -227,7 +230,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
 
             for (CachedMethod method : methods) {
                 final int mod = method.getModifiers();
-                if (Modifier.isStatic(mod) && Modifier.isPublic(mod) && method.getCachedMethod().getAnnotation(Deprecated.class) == null) {
+                if (Modifier.isStatic(mod) && Modifier.isPublic(mod) && method.getAnnotation(Deprecated.class) == null) {
                     CachedClass[] paramTypes = method.getParameterTypes();
                     if (paramTypes.length > 0) {
                         List<MetaMethod> arr = map.get(paramTypes[0]);
@@ -252,7 +255,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
 
     private void createMetaMethodFromClass(Map<CachedClass, List<MetaMethod>> map, Class aClass) {
         try {
-            MetaMethod method = (MetaMethod) aClass.newInstance();
+            MetaMethod method = (MetaMethod) aClass.getDeclaredConstructor().newInstance();
             final CachedClass declClass = method.getDeclaringClass();
             List<MetaMethod> arr = map.get(declClass);
             if (arr == null) {
@@ -261,8 +264,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
             }
             arr.add(method);
             instanceMethods.add(method);
-        } catch (InstantiationException e) { /* ignore */
-        } catch (IllegalAccessException e) { /* ignore */
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) { /* ignore */
         }
     }
 
@@ -415,7 +417,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
                     new ArrayList<MetaClassRegistryChangeEventListener>(changeListenerList.size()+nonRemoveableChangeListenerList.size());
             ret.addAll(nonRemoveableChangeListenerList);
             ret.addAll(changeListenerList);
-            return ret.toArray(new MetaClassRegistryChangeEventListener[0]);
+            return ret.toArray(EMPTY_METACLASSREGISTRYCHANGEEVENTLISTENER_ARRAY);
         }
     }
     
@@ -459,7 +461,7 @@ public class MetaClassRegistryImpl implements MetaClassRegistry{
      * @return the iterator.
      */    
     public Iterator iterator() {
-        final MetaClass[] refs = metaClassInfo.toArray(new MetaClass[0]);
+        final MetaClass[] refs = metaClassInfo.toArray(EMPTY_METACLASS_ARRAY);
         
         return new Iterator() {
             // index in the ref array

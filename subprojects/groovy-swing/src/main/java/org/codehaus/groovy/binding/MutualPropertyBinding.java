@@ -21,10 +21,10 @@ package org.codehaus.groovy.binding;
 import groovy.lang.Closure;
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
  * @since Groovy 1.6
  */
 
+@Deprecated
 public class MutualPropertyBinding implements FullBinding {
 
     boolean bound;

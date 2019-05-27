@@ -19,22 +19,22 @@
 package groovy.util
 
 /**
- * Groovy test case, which recreates internal GroovyShell in each setUp ()
- *
- * @author Alex Tkachman
+ * Groovy test case, which recreates internal GroovyShell in each setUp()
  */
+
+@Deprecated
 class GroovyShellTestCase extends GroovyTestCase {
 
     @Delegate protected GroovyShell shell
 
     protected void setUp() {
-        super.setUp();
-        shell = createNewShell();
+        super.setUp()
+        shell = createNewShell()
     }
 
     protected void tearDown() {
-        shell = null;
-        super.tearDown();
+        shell = null
+        super.tearDown()
     }
 
     /**

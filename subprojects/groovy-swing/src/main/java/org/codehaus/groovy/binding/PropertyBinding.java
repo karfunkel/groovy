@@ -46,14 +46,14 @@ import java.util.logging.Logger;
 
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
- * @author Andres Almiray
  * @since Groovy 1.1
  */
+@Deprecated
 public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBinding {
     private static final ExecutorService DEFAULT_EXECUTOR_SERVICE = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     private static final Logger LOG = Logger.getLogger(PropertyBinding.class.getName());
     private static final Map<Class, Class<? extends PropertyAccessor>> ACCESSORS = new LinkedHashMap<Class, Class<? extends PropertyAccessor>>();
+    private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
 
     static {
         Enumeration<URL> urls = fetchUrlsFor("META-INF/services/" + groovy.beans.PropertyAccessor.class.getName());
@@ -106,7 +106,7 @@ public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBin
     String propertyName;
     boolean nonChangeCheck;
     UpdateStrategy updateStrategy;
-    private final Object[] lock = new Object[0];
+    private final Object[] lock = EMPTY_OBJECT_ARRAY;
     private PropertyAccessor propertyAccessor;
 
     public PropertyBinding(Object bean, String propertyName) {
@@ -156,10 +156,8 @@ public class PropertyBinding implements SourceBinding, TargetBinding, TriggerBin
         }
 
         try {
-            return accessorClass.newInstance();
-        } catch (InstantiationException e) {
-            return DefaultPropertyAccessor.INSTANCE;
-        } catch (IllegalAccessException e) {
+            return accessorClass.getDeclaredConstructor().newInstance();
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
             return DefaultPropertyAccessor.INSTANCE;
         }
     }

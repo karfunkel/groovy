@@ -66,8 +66,6 @@ import java.util.Map;
  *       assert builder.toString() == '{"people":{"person":{"firstName":"Guillame","lastName":"Laforge","address":{"city":"Paris","country":"France","zip":12345},"married":true,"conferences":["JavaOne","Gr8conf"]}}}'
  * </code></pre>
  *
- * @author Guillaume Laforge
- * @author Andrey Bloshetsov
  * @since 1.8.0
  */
 public class JsonBuilder extends GroovyObjectSupport implements Writable {
@@ -195,7 +193,7 @@ public class JsonBuilder extends GroovyObjectSupport implements Writable {
      * def authors = [new Author (name: "Guillaume"), new Author (name: "Jochen"), new Author (name: "Paul")]
      *
      * def json = new groovy.json.JsonBuilder()
-     * json authors, { Author author ->
+     * json authors, { Author author {@code ->}
      *      name author.name
      * }
      *
@@ -402,7 +400,7 @@ public class JsonBuilder extends GroovyObjectSupport implements Writable {
      * json { temperature 37 }
      *
      * def out = new StringWriter()
-     * out << json
+     * out {@code <<} json
      *
      * assert out.toString() == '{"temperature":37}'
      * </code></pre>

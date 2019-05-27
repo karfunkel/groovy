@@ -16,6 +16,7 @@
  *  specific language governing permissions and limitations
  *  under the License.
  */
+
 // Note: Please don't use physical tabs.  Logical tabs for indent are width 4.
 header {
 package org.codehaus.groovy.antlr.java;
@@ -128,7 +129,7 @@ import antlr.LexerSharedInputState;
  *	  Note that the grammar is stricter now; e.g., this(...) must
  *	be the first statement.
  *
- *	  Trinary ?: operator wasn't working as array name:
+ *	  Ternary ?: operator wasn't working as array name:
  *		  (isBig ? bigDigits : digits)[i];
  *
  *	  Checked parser/tree parser on source for
@@ -147,7 +148,7 @@ import antlr.LexerSharedInputState;
  *	  Changes by Matt Quail to support generics (as per JDK1.5/JSR14)
  *	  Notes:
  *	  o We only allow the "extends" keyword and not the "implements"
- *		keyword, since thats what JSR14 seems to imply.
+ *		keyword, since that's what JSR14 seems to imply.
  *	  o Thanks to Monty Zukowski for his help on the antlr-interest
  *		mail list.
  *	  o Thanks to Alan Eliasen for testing the grammar over his
@@ -184,7 +185,7 @@ import antlr.LexerSharedInputState;
  *	  Bug fixes as identified by Michael Stahl; clean up of tabs/spaces
  *        and other refactorings
  *	  o Fixed typeParameters omission in identPrimary and newStatement
- *	  o Replaced GT reconcilliation code with simple semantic predicate
+ *	  o Replaced GT reconciliation code with simple semantic predicate
  *	  o Adapted enum/assert keyword checking support from Michael Stahl's java15 grammar
  *	  o Refactored typeDefinition production and field productions to reduce duplication
  *
@@ -370,10 +371,10 @@ classTypeSpec[boolean addImagNode]  {Token first = LT(1);}
 
 // A non-built in type name, with possible type parameters
 classOrInterfaceType[boolean addImagNode]  {Token first = LT(1);}
-	:	IDENT^ (typeArguments|typeArgumentsDiamond)?
+	:	IDENT^ (typeArgumentsOrDiamond)?
 		(options{greedy=true;}: // match as many as possible
 			DOT^
-			IDENT (typeArguments)?
+			IDENT (typeArgumentsOrDiamond)?
 		)*
 		{
 			if ( addImagNode ) {
@@ -402,10 +403,9 @@ wildcardType
 		(("extends" | "super")=> typeArgumentBounds)?
 	;
 
-typeArgumentsDiamond
-{Token first = LT(1);}
+typeArgumentsOrDiamond
     :   LT! GT!
-    {#typeArgumentsDiamond = #(create(TYPE_ARGUMENTS, "TYPE_ARGUMENTS",first,LT(1)), #typeArgumentsDiamond);}
+    |   typeArguments
     ;
 
 // Type arguments to a class or interface type
@@ -565,10 +565,10 @@ annotations  {Token first = LT(1);}
     ;
 
 annotationArguments
-	:	annotationMemberValueInitializer | anntotationMemberValuePairs
+	:	annotationMemberValueInitializer | annotationMemberValuePairs
 	;
 
-anntotationMemberValuePairs
+annotationMemberValuePairs
 	:	annotationMemberValuePair ( COMMA! annotationMemberValuePair )*
 	;
 
@@ -617,7 +617,7 @@ superClassClause!  {Token first = LT(1);}
 // Definition of a Java class
 classDefinition![AST modifiers] {Token first = LT(1);}
 	:	"class" IDENT
-		// it _might_ have type paramaters
+		// it _might_ have type parameters
 		(tp:typeParameters)?
 		// it _might_ have a superclass...
 		sc:superClassClause
@@ -632,7 +632,7 @@ classDefinition![AST modifiers] {Token first = LT(1);}
 // Definition of a Java Interface
 interfaceDefinition![AST modifiers]  {Token first = LT(1);}
 	:	"interface" IDENT
-		// it _might_ have type paramaters
+		// it _might_ have type parameters
 		(tp:typeParameters)?
 		// it might extend some other interfaces
 		ie:interfaceExtends
@@ -774,7 +774,7 @@ enumConstantBlock
 	;
 
 //An enum constant field is just like a class field but without
-//the posibility of a constructor definition or a static initializer
+//the possibility of a constructor definition or a static initializer
 enumConstantField! {Token first = LT(1);}
 	:	mods:modifiers
 		(	td:typeDefinitionInternal[#mods]
@@ -897,6 +897,7 @@ interfaceField!    {Token first = LT(1);}
 			// This is not allowed for variable definitions, but this production
 			// allows it, a semantic check could be used if you want a more strict
 			// grammar.
+			("default"!)?          // just to keep groovydoc parsing happy
 			t:typeSpec[false]		// method or variable declaration(s)
 			(	IDENT				// the name of the method
 
@@ -1046,7 +1047,7 @@ variableLengthParameterDeclaration!  {Token first = LT(1);}
 
 parameterModifier  {Token first = LT(1);}
 	//final can appear amongst annotations in any order - greedily consume any preceding
-	//annotations to shut nond-eterminism warnings off
+	//annotations to shut non-determinism warnings off
 	:	(options{greedy=true;} : annotation)* (f:"final")? (annotation)*
 		{#parameterModifier = #(create(MODIFIERS,"MODIFIERS",first,LT(1)), #parameterModifier);}
 	;
@@ -1057,7 +1058,7 @@ parameterModifier  {Token first = LT(1);}
 // Inside a class definition without "static":
 // it is an instance initializer
 // As the body of a method
-// As a completely indepdent braced block of code inside a method
+// As a completely independent braced block of code inside a method
 // it starts a new scope for variable definitions
 
 compoundStatement
@@ -1083,7 +1084,7 @@ statement
 	// side-effects.
 	|	expression SEMI!
 
-	//TODO: what abour interfaces, enums and annotations
+	//TODO: what about interfaces, enums and annotations
 	// class definition
 	|	m:modifiers! classDefinition[#m]
 
@@ -1210,11 +1211,26 @@ forIter  {Token first = LT(1);}
 	;
 
 // an exception handler try/catch block
+// TODO currently handles try-with-resources only enough for groovydoc, not java2groovy
+// plan is to switch java2groovy over to using parrot parser (or some other alternative)
 tryBlock
-	:	"try"^ compoundStatement
+	:	"try"^ ((LPAREN) => resources!)? compoundStatement
 		(handler)*
 		( finallyClause )?
 	;
+
+resources
+    :   LPAREN! resourceList (SEMI!)? RPAREN!
+    ;
+
+resourceList
+    :   resource (SEMI! resource)*
+    ;
+
+resource
+    : (declaration) => declaration
+	| expression
+    ;
 
 finallyClause
 	:	"finally"^ compoundStatement
@@ -1266,12 +1282,12 @@ multicatch
 //
 // the last two are not usually on a precedence chart; I put them in
 // to point out that new has a higher precedence than '.', so you
-// can validy use
+// can validly use
 //	 new Frame().show()
 //
 // Note that the above precedence levels map to the rules below...
 // Once you have a precedence chart, writing the appropriate rules as below
-//   is usually very straightfoward
+//   is usually very straightforward
 
 
 
@@ -1396,7 +1412,7 @@ unaryExpression
 unaryExpressionNotPlusMinus
 	:	BNOT^ unaryExpression
 	|	LNOT^ unaryExpression
-	|	(	// subrule allows option to shut off warnings
+	|	(	// sub-rule allows option to shut off warnings
 			options {
 				// "(int" ambig with postfixExpr due to lack of sequence
 				// info in linear approximate LL(k). It's ok. Shut up.
@@ -1500,7 +1516,7 @@ identPrimary
 				// off. See below. (The "false" predicate makes it non-issue)
 				warnWhenFollowAmbig=false;
 			}
-			// we have a new nondeterminism because of
+			// we have a new non-determinism because of
 			// typeArguments... only a syntactic predicate will help...
 			// The problem is that this loop here conflicts with
 			// DOT typeArguments "super" in postfixExpression (k=2)
@@ -1918,6 +1934,30 @@ IDENT
 		}
 	;
 
+protected
+DIGIT
+options {
+    paraphrase="a digit";
+}
+    :   '0'..'9'
+    // TODO:  Recognize all the Java identifier parts here (except '$').
+    ;
+
+protected
+DIGITS_WITH_UNDERSCORE
+options {
+    paraphrase="a sequence of digits and underscores, bordered by digits";
+}
+    :   DIGIT (DIGITS_WITH_UNDERSCORE_OPT)?
+    ;
+
+protected
+DIGITS_WITH_UNDERSCORE_OPT
+options {
+    paraphrase="a sequence of digits and underscores with maybe underscore starting";
+}
+    :   (DIGIT | '_')* DIGIT
+    ;
 
 // a numeric literal
 NUM_INT
@@ -1953,17 +1993,19 @@ NUM_INT
 				)+
 
 			|	//float or double with leading zero
-				(('0'..'9')+ ('.'|EXPONENT|FLOAT_SUFFIX)) => ('0'..'9')+
+                (   DIGITS_WITH_UNDERSCORE
+                    ( '.' DIGITS_WITH_UNDERSCORE | EXPONENT | FLOAT_SUFFIX)
+                ) => DIGITS_WITH_UNDERSCORE
 
 			|	('0'..'7')+									// octal
 			)?
-		|	('1'..'9') ('0'..'9')*  {isDecimal=true;}		// non-zero decimal
+		|	('1'..'9') (DIGITS_WITH_UNDERSCORE_OPT)?  {isDecimal=true;}		// non-zero decimal
 		)
 		(	('l'|'L') { _ttype = NUM_LONG; }
 
 		// only check to see if it's a float if looks like decimal so far
 		|	{isDecimal}?
-			(	'.' ('0'..'9')* (EXPONENT)? (f2:FLOAT_SUFFIX {t=f2;})?
+			(	'.' DIGITS_WITH_UNDERSCORE (EXPONENT)? (f2:FLOAT_SUFFIX {t=f2;})?
 			|	EXPONENT (f3:FLOAT_SUFFIX {t=f3;})?
 			|	f4:FLOAT_SUFFIX {t=f4;}
 			)

@@ -21,9 +21,9 @@ package org.codehaus.groovy.binding;
 import groovy.lang.Closure;
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
  * @since Groovy 1.1
  */
+@Deprecated
 public interface FullBinding extends BindingUpdatable {
 
     SourceBinding getSourceBinding();

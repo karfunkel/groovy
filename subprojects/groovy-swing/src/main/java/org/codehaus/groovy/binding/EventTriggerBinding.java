@@ -22,9 +22,9 @@ import groovy.lang.Closure;
 import org.codehaus.groovy.runtime.InvokerHelper;
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
  * @since Groovy 1.1
  */
+@Deprecated
 public class EventTriggerBinding implements TriggerBinding {
 
     Object triggerBean;

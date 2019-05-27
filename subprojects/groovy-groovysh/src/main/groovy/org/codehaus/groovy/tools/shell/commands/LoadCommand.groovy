@@ -26,9 +26,8 @@ import org.codehaus.groovy.tools.shell.completion.FileNameCompleter
 
 /**
  * The 'load' command.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
+@Deprecated
 class LoadCommand extends CommandSupport {
     public static final String COMMAND_NAME = ':load'
     private static final boolean isWin = Configuration.isWindows()

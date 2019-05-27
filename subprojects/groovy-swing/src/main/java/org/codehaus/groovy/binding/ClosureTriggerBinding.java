@@ -21,6 +21,7 @@ package org.codehaus.groovy.binding;
 import groovy.lang.Closure;
 import groovy.lang.GroovyObjectSupport;
 import groovy.lang.Reference;
+import org.codehaus.groovy.reflection.ReflectionUtils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -30,8 +31,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Deprecated
 public class ClosureTriggerBinding implements TriggerBinding, SourceBinding {
-
+    private static final BindPath[] EMPTY_BINDPATH_ARRAY = new BindPath[0];
     Map<String, TriggerBinding> syntheticBindings;
     Closure closure;
 
@@ -55,7 +57,7 @@ public class ClosureTriggerBinding implements TriggerBinding, SourceBinding {
         for (Map.Entry<String, BindPathSnooper> entry : snooper.fields.entrySet()) {
             childPaths.add(createBindPath(entry.getKey(), entry.getValue()));
         }
-        bp.children = childPaths.toArray(new BindPath[0]);
+        bp.children = childPaths.toArray(EMPTY_BINDPATH_ARRAY);
         return bp;
     }
 
@@ -81,13 +83,13 @@ public class ClosureTriggerBinding implements TriggerBinding, SourceBinding {
                     }
                     try {
                         boolean acc = constructor.isAccessible();
-                        constructor.setAccessible(true);
+                        ReflectionUtils.trySetAccessible(constructor);
                         Closure localCopy = (Closure) constructor.newInstance(args);
                         if (!acc) { constructor.setAccessible(false); }
                         localCopy.setResolveStrategy(Closure.DELEGATE_ONLY);
                         for (Field f:closureClass.getDeclaredFields()) {
                             acc = f.isAccessible();
-                            f.setAccessible(true);
+                            ReflectionUtils.trySetAccessible(f);
                             if (f.getType() == Reference.class) {
                                 delegate.fields.put(f.getName(),
                                         (BindPathSnooper) ((Reference) f.get(localCopy)).get());
@@ -123,7 +125,7 @@ public class ClosureTriggerBinding implements TriggerBinding, SourceBinding {
         PropertyPathFullBinding fb = new PropertyPathFullBinding();
         fb.setSourceBinding(new ClosureSourceBinding(closure));
         fb.setTargetBinding(target);
-        fb.bindPaths = rootPaths.toArray(new BindPath[0]);
+        fb.bindPaths = rootPaths.toArray(EMPTY_BINDPATH_ARRAY);
         return fb;
     }
 
@@ -132,10 +134,12 @@ public class ClosureTriggerBinding implements TriggerBinding, SourceBinding {
     }
 }
 
+@Deprecated
 class DeadEndException extends RuntimeException {
     DeadEndException(String message) { super(message); }
 }
 
+@Deprecated
 class DeadEndObject {
     public Object getProperty(String property) {
         throw new DeadEndException("Cannot bind to a property on the return value of a method call");
@@ -145,6 +149,7 @@ class DeadEndObject {
     }
 }
 
+@Deprecated
 class BindPathSnooper extends GroovyObjectSupport {
     static final DeadEndObject DEAD_END = new DeadEndObject();
 

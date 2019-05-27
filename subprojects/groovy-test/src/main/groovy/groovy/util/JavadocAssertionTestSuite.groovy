@@ -43,9 +43,8 @@ import junit.textui.TestRunner
  * </code>
  *
  * <b>Note: this class requires the Ant module at runtime.</b>
- *
- * @author Merlyn Albery-Speyer
  */
+@Deprecated
 class JavadocAssertionTestSuite extends TestSuite {
     /** The System Property to set as base directory for collection of Classes.
      * The pattern will be used as an Ant fileset include basedir.
@@ -71,7 +70,7 @@ class JavadocAssertionTestSuite extends TestSuite {
     public static final String SYSPROP_SRC_EXCLUDES_PATTERN = "javadocAssertion.src.excludesPattern";
     
     private static final JavadocAssertionTestBuilder testBuilder = new JavadocAssertionTestBuilder()
-    private static final IFileNameFinder finder = Class.forName('groovy.util.FileNameFinder',true,this.classLoader).newInstance()
+    private static final IFileNameFinder finder = Class.forName('groovy.ant.FileNameFinder',true,this.classLoader).newInstance()
     
     static Test suite() {
         String basedir = System.getProperty(SYSPROP_SRC_DIR, "./src/")

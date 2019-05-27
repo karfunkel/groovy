@@ -43,8 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A utility class responsible for decompiling JVM class files and producing {@link ClassStub} objects reflecting their structure.
- *
- * @author Peter Gromov
  */
 public abstract class AsmDecompiler {
 
@@ -103,7 +101,28 @@ public abstract class AsmDecompiler {
 
         @Override
         public void visitInnerClass(String name, String outerName, String innerName, int access) {
-            result.innerClassModifiers.put(innerName, access);
+            /*
+             * Class files generated for inner classes have an INNERCLASS
+             * reference to self. The top level class access modifiers for
+             * an inner class will not accurately reflect their access. For
+             * example, top-level access modifiers for private inner classes
+             * are package-private, protected inner classes are public, and
+             * the static modifier is not included. So the INNERCLASS self
+             * reference is used to capture the correct modifiers.
+             *
+             * Must compare against the fully qualified name because there may
+             * be other INNERCLASS references to same named nested classes from
+             * other classes.
+             *
+             * Example:
+             *
+             *   public final class org/foo/Groovy8632$Builder extends org/foo/Groovy8632Abstract$Builder  {
+             *     public final static INNERCLASS org/foo/Groovy8632$Builder org/foo/Groovy8632 Builder
+             *     public static abstract INNERCLASS org/foo/Groovy8632Abstract$Builder org/foo/Groovy8632Abstract Builder
+             */
+            if (fromInternalName(name).equals(result.className)) {
+                result.innerClassModifiers = access;
+            }
         }
 
         @Override
@@ -139,6 +158,12 @@ public abstract class AsmDecompiler {
                             }
                         };
                     }
+
+                    @Override
+                    public void visitParameter(String name, int access) {
+                        if (stub.parameterNames == null) stub.parameterNames = new ArrayList<String>();
+                        stub.parameterNames.add(name);
+                    }
                 };
             }
             return null;
@@ -151,7 +176,7 @@ public abstract class AsmDecompiler {
 
         @Override
         public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-            final FieldStub stub = new FieldStub(name, access, desc, signature);
+            final FieldStub stub = new FieldStub(name, access, desc, signature, value);
             if (result.fields == null) result.fields = new ArrayList<FieldStub>(1);
             result.fields.add(stub);
             return new FieldVisitor(api) {

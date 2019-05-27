@@ -19,10 +19,8 @@
 package groovy.bugs
 
 import groovy.sql.SqlHelperTestCase
+import groovy.test.GroovyTestCase
 
-/**
- * @author Jonathan Carlson
- */
 class ForAndSqlBug extends GroovyTestCase {
 
     void testBugInNormalMethod() {

@@ -18,10 +18,10 @@
  */
 package groovy.transform.stc
 
+import groovy.transform.CompileStatic
+
 /**
  * Unit tests for static type checking : loops.
- *
- * @author Cedric Champeau
  */
 class LoopsSTCTest extends StaticTypeCheckingTestCase {
 
@@ -45,6 +45,22 @@ class LoopsSTCTest extends StaticTypeCheckingTestCase {
         '''
     }
 
+    // GROOVY-8882
+    void testStringCollectionLoop() {
+        for (char c in 'abc') assert c instanceof Character
+        for (Character c in 'abc') assert c instanceof Character
+        for (String s in 'abc') assert s instanceof String
+        for (s in 'abc') assert s instanceof String
+    }
+
+    // GROOVY-8882
+    @CompileStatic
+    void testStringCollectionLoopCS() {
+        for (char c in 'abc') assert c instanceof Character
+        for (Character c in 'abc') assert c instanceof Character
+        for (String s in 'abc') assert s instanceof String
+        for (s in 'abc') assert s instanceof String
+    }
 
     void testMethodCallWithEachAndDefAndTwoFooMethods() {
         shouldFailWithMessages '''

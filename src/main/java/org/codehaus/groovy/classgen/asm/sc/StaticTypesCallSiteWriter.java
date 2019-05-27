@@ -45,7 +45,6 @@ import org.codehaus.groovy.classgen.asm.MethodCallerMultiAdapter;
 import org.codehaus.groovy.classgen.asm.OperandStack;
 import org.codehaus.groovy.classgen.asm.TypeChooser;
 import org.codehaus.groovy.runtime.InvokerHelper;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.codehaus.groovy.syntax.SyntaxException;
 import org.codehaus.groovy.transform.sc.StaticCompilationMetadataKeys;
 import org.codehaus.groovy.transform.stc.StaticTypeCheckingSupport;
@@ -61,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.groovy.util.BeanUtils.capitalize;
 import static org.codehaus.groovy.ast.ClassHelper.BigDecimal_TYPE;
 import static org.codehaus.groovy.ast.ClassHelper.BigInteger_TYPE;
 import static org.codehaus.groovy.ast.ClassHelper.Boolean_TYPE;
@@ -91,8 +91,6 @@ import static org.codehaus.groovy.transform.stc.StaticTypeCheckingSupport.isClas
  * A call site writer which replaces call site caching with static calls. This means that the generated code
  * looks more like Java code than dynamic Groovy code. Best effort is made to use JVM instructions instead of
  * calls to helper methods.
- *
- * @author Cedric Champeau
  */
 public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes {
 
@@ -205,16 +203,11 @@ public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes
             if (makeGetPropertyWithGetter(receiver, CLASS_Type, methodName, safe, implicitThis)) return;
             if (makeGetField(receiver, CLASS_Type, methodName, safe, false, true)) return;
         }
-        if (receiverType.isEnum()) {
-            mv.visitFieldInsn(GETSTATIC, BytecodeHelper.getClassInternalName(receiverType), methodName, BytecodeHelper.getTypeDescription(receiverType));
-            controller.getOperandStack().push(receiverType);
-            return;
-        }
         if (makeGetPrivateFieldWithBridgeMethod(receiver, receiverType, methodName, safe, implicitThis)) return;
 
         // GROOVY-5580, it is still possible that we're calling a superinterface property
-        String getterName = "get" + MetaClassHelper.capitalize(methodName);
-        String altGetterName = "is" + MetaClassHelper.capitalize(methodName);
+        String getterName = "get" + capitalize(methodName);
+        String altGetterName = "is" + capitalize(methodName);
         if (receiverType.isInterface()) {
             Set<ClassNode> allInterfaces = receiverType.getAllInterfaces();
             MethodNode getterMethod = null;
@@ -506,10 +499,10 @@ public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes
 
     private boolean makeGetPropertyWithGetter(final Expression receiver, final ClassNode receiverType, final String methodName, final boolean safe, final boolean implicitThis) {
         // does a getter exists ?
-        String getterName = "get" + MetaClassHelper.capitalize(methodName);
+        String getterName = "get" + capitalize(methodName);
         MethodNode getterNode = receiverType.getGetterMethod(getterName);
         if (getterNode==null) {
-            getterName = "is" + MetaClassHelper.capitalize(methodName);
+            getterName = "is" + capitalize(methodName);
             getterNode = receiverType.getGetterMethod(getterName);
         }
         if (getterNode!=null && receiver instanceof ClassExpression && !CLASS_Type.equals(receiverType) && !getterNode.isStatic()) {
@@ -526,7 +519,7 @@ public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes
             if (boolean_TYPE.equals(propertyNode.getOriginType())) {
                 prefix = "is";
             }
-            getterName = prefix + MetaClassHelper.capitalize(methodName);
+            getterName = prefix + capitalize(methodName);
             getterNode = new MethodNode(
                     getterName,
                     ACC_PUBLIC,
@@ -632,21 +625,25 @@ public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes
         return false;
     }
 
-    private static boolean isDirectAccessAllowed(FieldNode a, ClassNode receiver, boolean isSamePackage) {
-        ClassNode declaringClass = a.getDeclaringClass().redirect();
+    private static boolean isDirectAccessAllowed(FieldNode field, ClassNode receiver, boolean isSamePackage) {
+        ClassNode declaringClass = field.getDeclaringClass().redirect();
         ClassNode receiverType = receiver.redirect();
 
-        // first, direct access from within the class or inner class nodes
+        // first, direct access from within the class
         if (declaringClass.equals(receiverType)) return true;
-        if (receiverType instanceof InnerClassNode) {
-            while (receiverType instanceof InnerClassNode) {
-                if (declaringClass.equals(receiverType)) return true;
-                receiverType = receiverType.getOuterClass();
+        if (field.isPrivate()) return false;
+
+        // now, inner class node access to outer class fields
+        receiverType = receiverType.getOuterClass();
+        while (receiverType != null) {
+            if (declaringClass.equals(receiverType)) {
+                return true;
             }
+            receiverType = receiverType.getOuterClass();
         }
 
-        // no getter
-        return a.isPublic() || (a.isProtected() && isSamePackage);
+        // finally public and inherited
+        return field.isPublic() || isSamePackage;
     }
 
     @Override
@@ -875,7 +872,7 @@ public class StaticTypesCallSiteWriter extends CallSiteWriter implements Opcodes
         controller.getOperandStack().doGroovyCast(Number_TYPE);
         int m2 = operandStack.getStackLength();
         MethodVisitor mv = controller.getMethodVisitor();
-        mv.visitMethodInsn(INVOKESTATIC, "org/codehaus/groovy/runtime/dgmimpl/NumberNumber" + MetaClassHelper.capitalize(message), message, "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;", false);
+        mv.visitMethodInsn(INVOKESTATIC, "org/codehaus/groovy/runtime/dgmimpl/NumberNumber" + capitalize(message), message, "(Ljava/lang/Number;Ljava/lang/Number;)Ljava/lang/Number;", false);
         controller.getOperandStack().replace(Number_TYPE, m2 - m1);
     }
 

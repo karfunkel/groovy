@@ -24,9 +24,8 @@ import java.util.Map;
 /**
  * Represents a number of field models which can be ValueModel, 
  * PropertyModel, TableModel, TreeModel or nested FormModel instances
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public class FormModel {
     private Map fieldModels;
 

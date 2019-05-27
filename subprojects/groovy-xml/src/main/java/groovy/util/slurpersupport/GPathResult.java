@@ -47,9 +47,8 @@ import java.util.Stack;
 
 /**
  * Base class for representing lazy evaluated GPath expressions.
- *
- * @author John Wilson
  */
+@Deprecated
 public abstract class GPathResult extends GroovyObjectSupport implements Writable, Buildable, Iterable {
     protected final GPathResult parent;
     protected final String name;
@@ -414,7 +413,7 @@ public abstract class GPathResult extends GroovyObjectSupport implements Writabl
      * &lt;characterList&gt;
      *   &lt;character/&gt;
      *   &lt;character&gt;
-     *     &lt;name>Gromit&lt;/name&gt;
+     *     &lt;name&gt;Gromit&lt;/name&gt;
      *   &lt;/character&gt;
      * &lt;/characterList&gt;"""
      *
@@ -454,7 +453,7 @@ public abstract class GPathResult extends GroovyObjectSupport implements Writabl
      * <pre class="groovyTestCase">
      * import groovy.util.slurpersupport.*
      * def text = """
-     * &lt;characterList>
+     * &lt;characterList&gt;
      *   &lt;character&gt;Wallace&lt;/character&gt;
      *   &lt;character&gt;Gromit&lt;/character&gt;
      *   &lt;character&gt;Shaun&lt;/character&gt;
@@ -687,4 +686,26 @@ public abstract class GPathResult extends GroovyObjectSupport implements Writabl
     public abstract GPathResult findAll(Closure closure);
 
     public abstract Iterator nodeIterator();
+
+    protected Iterator createIterator(final Object obj) {
+        return new Iterator() {
+            private boolean hasNext = true;
+
+            public boolean hasNext() {
+                return this.hasNext;
+            }
+
+            public Object next() {
+                try {
+                    return (this.hasNext) ? obj : null;
+                } finally {
+                    this.hasNext = false;
+                }
+            }
+
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }
 }

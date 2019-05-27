@@ -76,9 +76,10 @@ import java.util.Stack;
  * rootNode.a.each { assert it.text() in ['one!','two!'] }
  * </pre>
  *
- * @author John Wilson
  * @see GPathResult
+ * @deprecated use {@link groovy.xml.XmlSlurper}
  */
+@Deprecated
 public class XmlSlurper extends DefaultHandler {
     private final XMLReader reader;
     private Node currentNode = null;
@@ -143,9 +144,7 @@ public class XmlSlurper extends DefaultHandler {
         try {
             factory.setFeature(feature, value);
         }
-        catch (ParserConfigurationException ignored) { }
-        catch (SAXNotRecognizedException ignored) { }
-        catch (SAXNotSupportedException ignored) { }
+        catch (ParserConfigurationException | SAXNotSupportedException | SAXNotRecognizedException ignored) { }
     }
 
     /**

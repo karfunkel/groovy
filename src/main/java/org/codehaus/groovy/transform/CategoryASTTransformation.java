@@ -51,6 +51,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import static org.codehaus.groovy.ast.tools.ClosureUtils.getParametersSafe;
+import static org.codehaus.groovy.ast.tools.ClosureUtils.hasImplicitParameter;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
 
 /**
  * Handles generation of code for the @Category annotation.
@@ -60,8 +64,6 @@ import java.util.Set;
  * <li>all non-static methods converted to static ones with an additional 'self' parameter</li>
  * <li>references to 'this' changed to the additional 'self' parameter</li>
  * </ul>
- *
- * @author Alex Tkachman
  */
 @GroovyASTTransformation(phase = CompilePhase.CANONICALIZATION)
 public class CategoryASTTransformation implements ASTTransformation, Opcodes {
@@ -142,7 +144,7 @@ public class CategoryASTTransformation implements ASTTransformation, Opcodes {
 
             @Override
             public void visitClosureExpression(ClosureExpression ce) {
-                addVariablesToStack(ce.getParameters());
+                addVariablesToStack(getParametersSafe(ce));
                 super.visitClosureExpression(ce);
                 varStack.removeLast();
             }
@@ -207,15 +209,10 @@ public class CategoryASTTransformation implements ASTTransformation, Opcodes {
                 } else if (exp instanceof ClosureExpression) {
                     ClosureExpression ce = (ClosureExpression) exp;
                     ce.getVariableScope().putReferencedLocalVariable((Parameter) parameter.get());
-                    Parameter[] params = ce.getParameters();
-                    if (params == null) {
-                        params = Parameter.EMPTY_ARRAY;
-                    } else if (params.length == 0) {
-                        params = new Parameter[]{
-                                new Parameter(ClassHelper.OBJECT_TYPE, "it")
-                        };
-                    }
-                    addVariablesToStack(params);
+                    addVariablesToStack(
+                            hasImplicitParameter(ce)
+                                    ? params(param(ClassHelper.OBJECT_TYPE, "it"))
+                                    : getParametersSafe(ce));
                     ce.getCode().visit(this);
                     varStack.removeLast();
                 }

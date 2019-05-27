@@ -22,8 +22,6 @@ import groovy.transform.stc.ReturnsSTCTest
 
 /**
  * Unit tests for static type checking : returns.
- *
- * @author Cedric Champeau
  */
 class ReturnsStaticCompileTest extends ReturnsSTCTest implements StaticCompilationTestSupport {
 
@@ -46,7 +44,7 @@ class A {
 
    void sayHello() {
       // also fails: def greeter = createGreeter()
-      // successfull: def greeter = (Greeter)createGreeter()
+      // successful: def greeter = (Greeter)createGreeter()
       Greeter greeter = createGreeter()
       greeter.sayHello()
    }

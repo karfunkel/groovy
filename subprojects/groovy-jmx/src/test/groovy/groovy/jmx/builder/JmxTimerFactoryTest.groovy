@@ -18,6 +18,9 @@
  */
 package groovy.jmx.builder
 
+import groovy.jmx.GroovyMBean
+import groovy.test.GroovyTestCase
+
 import javax.management.MBeanServer
 import javax.management.ObjectName
 

@@ -530,7 +530,7 @@ public class ProxyGeneratorAdapter extends ClassVisitor implements Opcodes {
         }
         int index = name.lastIndexOf('.');
         if (index == -1) return name + pxyCounter.incrementAndGet() + "_groovyProxy";
-        return name.substring(index + 1, name.length()) + pxyCounter.incrementAndGet() + "_groovyProxy";
+        return name.substring(index + 1) + pxyCounter.incrementAndGet() + "_groovyProxy";
     }
 
     private static boolean isImplemented(Class clazz, String name, String desc) {
@@ -823,11 +823,7 @@ public class ProxyGeneratorAdapter extends ClassVisitor implements Opcodes {
             // if there isn't any argument, we can make invocation faster using the cached constructor
             try {
                 return (GroovyObject) cachedNoArgConstructor.newInstance(map);
-            } catch (InstantiationException e) {
-                throw new GroovyRuntimeException(e);
-            } catch (IllegalAccessException e) {
-                throw new GroovyRuntimeException(e);
-            } catch (InvocationTargetException e) {
+            } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
                 throw new GroovyRuntimeException(e);
             }
         }
@@ -844,11 +840,7 @@ public class ProxyGeneratorAdapter extends ClassVisitor implements Opcodes {
             // if there isn't any argument, we can make invocation faster using the cached constructor
             try {
                 return (GroovyObject) cachedNoArgConstructor.newInstance(map, delegate);
-            } catch (InstantiationException e) {
-                throw new GroovyRuntimeException(e);
-            } catch (IllegalAccessException e) {
-                throw new GroovyRuntimeException(e);
-            } catch (InvocationTargetException e) {
+            } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
                 throw new GroovyRuntimeException(e);
             }
         }

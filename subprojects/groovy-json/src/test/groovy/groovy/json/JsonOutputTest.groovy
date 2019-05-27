@@ -18,14 +18,11 @@
  */
 package groovy.json
 
-import static groovy.json.JsonOutput.toJson
-
+import groovy.test.GroovyTestCase
 import groovy.transform.Canonical
 
-/**
- * @author Guillaume Laforge
- * @author Andrey Bloschetsov
- */
+import static groovy.json.JsonOutput.toJson
+
 class JsonOutputTest extends GroovyTestCase {
 
     // Check for GROOVY-5918

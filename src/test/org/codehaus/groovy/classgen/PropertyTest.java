@@ -25,9 +25,6 @@ import org.codehaus.groovy.runtime.DummyBean;
 
 import java.lang.reflect.Modifier;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class PropertyTest extends TestSupport {
 
     public void testFields() throws Exception {
@@ -51,7 +48,7 @@ public class PropertyTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Managed to create bean", bean != null);
 
         assertField(fooClass, "bar", 0, ClassHelper.STRING_TYPE);
@@ -67,7 +64,7 @@ public class PropertyTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Managed to create bean", bean != null);
 
         assertField(fooClass, "bar", 0, ClassHelper.STRING_TYPE);

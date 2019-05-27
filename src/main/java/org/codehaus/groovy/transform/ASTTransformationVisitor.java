@@ -39,6 +39,7 @@ import org.codehaus.groovy.util.URLStreams;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -70,8 +71,6 @@ import java.util.Set;
  * transformations.  They will only be handled in later phases (and then only
  * if the type was in the AST prior to any AST transformations being run
  * against it).
- *
- * @author Danno Ferrin (shemnon)
  */
 public final class ASTTransformationVisitor extends ClassCodeVisitorSupport {
 
@@ -108,14 +107,8 @@ public final class ASTTransformationVisitor extends ClassCodeVisitorSupport {
             final Map<Class<? extends ASTTransformation>, ASTTransformation> transformInstances = new HashMap<Class<? extends ASTTransformation>, ASTTransformation>();
             for (Class<? extends ASTTransformation> transformClass : baseTransforms.keySet()) {
                 try {
-                    transformInstances.put(transformClass, transformClass.newInstance());
-                } catch (InstantiationException e) {
-                    source.getErrorCollector().addError(
-                            new SimpleMessage(
-                                    "Could not instantiate Transformation Processor " + transformClass
-                                    , //+ " declared by " + annotation.getClassNode().getName(),
-                                    source));
-                } catch (IllegalAccessException e) {
+                    transformInstances.put(transformClass, transformClass.getDeclaredConstructor().newInstance());
+                } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
                     source.getErrorCollector().addError(
                             new SimpleMessage(
                                     "Could not instantiate Transformation Processor " + transformClass
@@ -220,9 +213,7 @@ public final class ASTTransformationVisitor extends ClassCodeVisitorSupport {
             while (globalServices.hasMoreElements()) {
                 URL service = globalServices.nextElement();
                 String className;
-                BufferedReader svcIn = null;
-                try {
-                    svcIn = new BufferedReader(new InputStreamReader(URLStreams.openUncachedStream(service), "UTF-8"));
+                try (BufferedReader svcIn = new BufferedReader(new InputStreamReader(URLStreams.openUncachedStream(service), "UTF-8"))) {
                     try {
                         className = svcIn.readLine();
                     } catch (IOException ioe) {
@@ -271,9 +262,6 @@ public final class ASTTransformationVisitor extends ClassCodeVisitorSupport {
                             continue;
                         }
                     }
-                } finally {
-                    if (svcIn != null)
-                        svcIn.close();
                 }
             }
         } catch (IOException e) {
@@ -322,7 +310,7 @@ public final class ASTTransformationVisitor extends ClassCodeVisitorSupport {
                     continue;
                 }
                 if (ASTTransformation.class.isAssignableFrom(gTransClass)) {
-                    final ASTTransformation instance = (ASTTransformation)gTransClass.newInstance();
+                    final ASTTransformation instance = (ASTTransformation)gTransClass.getDeclaredConstructor().newInstance();
                     if (instance instanceof CompilationUnitAware) {
                         ((CompilationUnitAware)instance).setCompilationUnit(compilationUnit);
                     }

@@ -48,6 +48,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Class providing various type conversions, coercions and boxing/unboxing operations.
@@ -111,37 +112,37 @@ public class DefaultTypeTransformation {
 
     @Deprecated
     public static Object box(byte value) {
-        return Byte.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(char value) {
-        return Character.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(short value) {
-        return Short.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(int value) {
-        return Integer.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(long value) {
-        return Long.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(float value) {
-        return Float.valueOf(value);
+        return value;
     }
 
     @Deprecated
     public static Object box(double value) {
-        return Double.valueOf(value);
+        return value;
     }
 
     public static Number castToNumber(Object object) {
@@ -153,12 +154,12 @@ public class DefaultTypeTransformation {
         if (object instanceof Number)
             return (Number) object;
         if (object instanceof Character) {
-            return Integer.valueOf(((Character) object).charValue());
+            return (int) (Character) object;
         }
         if (object instanceof GString) {
             String c = ((GString) object).toString();
             if (c.length() == 1) {
-                return Integer.valueOf(c.charAt(0));
+                return (int) c.charAt(0);
             } else {
                 throw new GroovyCastException(c, type);
             }
@@ -166,7 +167,7 @@ public class DefaultTypeTransformation {
         if (object instanceof String) {
             String c = (String) object;
             if (c.length() == 1) {
-                return Integer.valueOf(c.charAt(0));
+                return (int) c.charAt(0);
             } else {
                 throw new GroovyCastException(c, type);
             }
@@ -189,7 +190,7 @@ public class DefaultTypeTransformation {
 
         // equality check is enough and faster than instanceof check, no need to check superclasses since Boolean is final
         if (object.getClass() == Boolean.class) {
-            return ((Boolean) object).booleanValue();
+            return (Boolean) object;
         }
 
         // if the object is not null and no Boolean, try to call an asBoolean() method on the object
@@ -199,7 +200,7 @@ public class DefaultTypeTransformation {
     @Deprecated
     public static char castToChar(Object object) {
         if (object instanceof Character) {
-            return ((Character) object).charValue();
+            return (Character) object;
         } else if (object instanceof Number) {
             Number value = (Number) object;
             return (char) value.intValue();
@@ -258,7 +259,7 @@ public class DefaultTypeTransformation {
                 // let's call the collections constructor
                 // passing in the list wrapper
                 try {
-                    answer = (Collection) type.newInstance();
+                    answer = (Collection) type.getDeclaredConstructor().newInstance();
                 } catch (Exception e) {
                     throw new GroovyCastException("Could not instantiate instance of: " + type.getName() + ". Reason: " + e);
                 }
@@ -344,10 +345,10 @@ public class DefaultTypeTransformation {
         } else if (type == float.class) {
             return floatUnbox(object);
         } else if (type == double.class) {
-            Double answer = new Double(doubleUnbox(object));
+            Double answer = doubleUnbox(object);
             //throw a runtime exception if conversion would be out-of-range for the type.
-            if (!(object instanceof Double) && (answer.doubleValue() == Double.NEGATIVE_INFINITY
-                    || answer.doubleValue() == Double.POSITIVE_INFINITY)) {
+            if (!(object instanceof Double) && (answer == Double.NEGATIVE_INFINITY
+                    || answer == Double.POSITIVE_INFINITY)) {
                 throw new GroovyRuntimeException("Automatic coercion of " + object.getClass().getName()
                         + " value " + object + " to double failed.  Value is out of range.");
             }
@@ -581,10 +582,13 @@ public class DefaultTypeTransformation {
                 return ((String) left).compareTo(right.toString());
             } else if (left instanceof GString && right instanceof String) {
                 return ((GString) left).compareTo(right);
+            } else if (left instanceof GString && right instanceof Character) {
+                return ((GString) left).compareTo(right);
             }
             if (!equalityCheckOnly || left.getClass().isAssignableFrom(right.getClass())
-                    || (right.getClass() != Object.class && right.getClass().isAssignableFrom(left.getClass())) //GROOVY-4046
-                    ) {
+                    || (right.getClass() != Object.class && right.getClass().isAssignableFrom(left.getClass()) //GROOVY-4046
+                    || right instanceof Comparable) // GROOVY-7954
+            ) {
                 Comparable comparable = (Comparable) left;
                 // GROOVY-7876: when comparing for equality we try to only call compareTo when an assignable
                 // relationship holds but with a container/holder class and because of erasure, we might still end
@@ -640,7 +644,7 @@ public class DefaultTypeTransformation {
         if (left instanceof Map.Entry && right instanceof Map.Entry) {
             Object k1 = ((Map.Entry) left).getKey();
             Object k2 = ((Map.Entry) right).getKey();
-            if (k1 == k2 || (k1 != null && k1.equals(k2))) {
+            if (Objects.equals(k1, k2)) {
                 Object v1 = ((Map.Entry) left).getValue();
                 Object v2 = ((Map.Entry) right).getValue();
                 if (v1 == v2 || (v1 != null && DefaultTypeTransformation.compareEqual(v1, v2)))
@@ -648,7 +652,7 @@ public class DefaultTypeTransformation {
             }
             return false;
         }
-        return ((Boolean) InvokerHelper.invokeMethod(left, "equals", right)).booleanValue();
+        return (Boolean) InvokerHelper.invokeMethod(left, "equals", right);
     }
 
     public static boolean compareArrayEqual(Object left, Object right) {
@@ -673,13 +677,7 @@ public class DefaultTypeTransformation {
      * @return true if the given value is a valid character string (i.e. has length of 1)
      */
     private static boolean isValidCharacterString(Object value) {
-        if (value instanceof String) {
-            String s = (String) value;
-            if (s.length() == 1) {
-                return true;
-            }
-        }
-        return false;
+        return (value instanceof String || value instanceof GString) && value.toString().length() == 1;
     }
 
     @Deprecated
@@ -714,7 +712,7 @@ public class DefaultTypeTransformation {
             ans = new boolean[ia.length];
             for (int i = 0; i < ia.length; i++) {
                 if (ia[i] == null) continue;
-                ans[i] = ((Boolean) ia[i]).booleanValue();
+                ans[i] = (Boolean) ia[i];
             }
         }
         return ans;
@@ -770,7 +768,7 @@ public class DefaultTypeTransformation {
                 if (ia[i] == null) {
                     continue;
                 }
-                ans[i] = ((Character) ia[i]).charValue();
+                ans[i] = (Character) ia[i];
             }
         }
         return ans;
@@ -872,7 +870,7 @@ public class DefaultTypeTransformation {
         if (value instanceof String) {
             String s = (String) value;
             if (s.length() != 1) throw new IllegalArgumentException("String of length 1 expected but got a bigger one");
-            return Character.valueOf(s.charAt(0));
+            return s.charAt(0);
         } else {
             return ((Character) value);
         }

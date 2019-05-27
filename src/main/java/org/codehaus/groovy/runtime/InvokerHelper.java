@@ -70,6 +70,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.lang.Math.max;
+
 /**
  * A static helper class to make bytecode generation easier and act as a facade over the Invoker
  */
@@ -263,7 +265,7 @@ public class InvokerHelper {
     public static Object unaryMinus(Object value) {
         if (value instanceof Integer) {
             Integer number = (Integer) value;
-            return Integer.valueOf(-number.intValue());
+            return -number;
         }
         if (value instanceof Long) {
             Long number = (Long) value;
@@ -285,11 +287,11 @@ public class InvokerHelper {
         }
         if (value instanceof Short) {
             Short number = (Short) value;
-            return Short.valueOf((short) -number.shortValue());
+            return (short) -number;
         }
         if (value instanceof Byte) {
             Byte number = (Byte) value;
-            return Byte.valueOf((byte) -number.byteValue());
+            return (byte) -number;
         }
         if (value instanceof ArrayList) {
             // value is a list.
@@ -388,14 +390,31 @@ public class InvokerHelper {
 
     public static List createList(Object[] values) {
         List answer = new ArrayList(values.length);
-        answer.addAll(Arrays.asList(values));
+
+        // GROOVY-8995: Improve the performance of creating list
+        // answer.addAll(Arrays.asList(values));
+        Collections.addAll(answer, values);
+
         return answer;
     }
 
+    /**
+     * According to the initial entry count, calculate the initial capacity of hash map, which is power of 2
+     * (SEE https://stackoverflow.com/questions/8352378/why-does-hashmap-require-that-the-initial-capacity-be-a-power-of-two)
+     *
+     * @param initialEntryCnt the initial entry count
+     * @return the initial capacity
+     */
+    public static int initialCapacity(int initialEntryCnt) {
+        if (0 == initialEntryCnt) return 16;
+
+        return Integer.highestOneBit(initialEntryCnt) << 1;
+    }
+
     public static Map createMap(Object[] values) {
-        Map answer = new LinkedHashMap(values.length / 2);
-        int i = 0;
-        while (i < values.length - 1) {
+        Map answer = new LinkedHashMap(initialCapacity(values.length / 2));
+
+        for (int i = 0, n = values.length; i < n - 1; ) {
             if ((values[i] instanceof SpreadMap) && (values[i + 1] instanceof Map)) {
                 Map smap = (Map) values[i + 1];
                 for (Object e : smap.entrySet()) {
@@ -439,7 +458,7 @@ public class InvokerHelper {
                 if (Script.class.isAssignableFrom(scriptClass)) {
                     script = newScript(scriptClass, context);
                 } else {
-                    final GroovyObject object = (GroovyObject) scriptClass.newInstance();
+                    final GroovyObject object = (GroovyObject) scriptClass.getDeclaredConstructor().newInstance();
                     // it could just be a class, so let's wrap it in a Script
                     // wrapper; though the bindings will be ignored
                     script = new Script(context) {
@@ -536,12 +555,13 @@ public class InvokerHelper {
             } else {
                 reader = (Reader) object;
             }
-            char[] chars = new char[8192];
-            int i;
-            while ((i = reader.read(chars)) != -1) {
-                out.write(chars, 0, i);
+
+            try (Reader r = reader) {
+                char[] chars = new char[8192];
+                for (int i; (i = r.read(chars)) != -1; ) {
+                    out.write(chars, 0, i);
+                }
             }
-            reader.close();
         } else {
             out.write(toString(object));
         }
@@ -639,13 +659,7 @@ public class InvokerHelper {
             try {
                 Method serialize = Class.forName("groovy.xml.XmlUtil").getMethod("serialize", Element.class);
                 return (String) serialize.invoke(null, arguments);
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
-            } catch (NoSuchMethodException e) {
-                throw new RuntimeException(e);
-            } catch (InvocationTargetException e) {
-                throw new RuntimeException(e);
-            } catch (IllegalAccessException e) {
+            } catch (ClassNotFoundException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuntimeException(e);
             }
         }
@@ -727,7 +741,7 @@ public class InvokerHelper {
     }
 
     private static int sizeLeft(int maxSize, StringBuilder buffer) {
-        return maxSize == -1 ? maxSize : Math.max(0, maxSize - buffer.length());
+        return maxSize == -1 ? maxSize : max(0, maxSize - buffer.length());
     }
 
     private static String formatCollection(Collection collection, boolean verbose, int maxSize, boolean safe) {
@@ -921,10 +935,8 @@ public class InvokerHelper {
     public static List createRange(Object from, Object to, boolean inclusive) {
         try {
             return ScriptBytecodeAdapter.createRange(from, to, inclusive);
-        } catch (RuntimeException re) {
+        } catch (RuntimeException | Error re) {
             throw re;
-        } catch (Error e) {
-            throw e;
         } catch (Throwable t) {
             throw new RuntimeException(t);
         }

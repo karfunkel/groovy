@@ -27,9 +27,6 @@ import java.util.List;
 
 /**
  * Represents a method declaration
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Hamlet D'Arcy
  */
 public class MethodNode extends AnnotatedNode implements Opcodes {
     public static final String SCRIPT_BODY_METHOD_KEY = "org.codehaus.groovy.ast.MethodNode.isScriptBody";
@@ -57,8 +54,6 @@ public class MethodNode extends AnnotatedNode implements Opcodes {
         this.modifiers = modifiers;
         this.code = code;
         setReturnType(returnType);
-        VariableScope scope = new VariableScope();
-        setVariableScope(scope);
         setParameters(parameters);
         this.hasDefault = false;
         this.exceptions = exceptions;
@@ -193,7 +188,7 @@ public class MethodNode extends AnnotatedNode implements Opcodes {
     }
 
     public String toString() {
-        return "MethodNode@" + hashCode() + "[" + getDeclaringClass().getName() + "#" + getTypeDescriptor() + "]";
+        return super.toString() + "[" + getDeclaringClass().getName() + "#" + getTypeDescriptor() + "]";
     }
 
     public void setReturnType(ClassNode returnType) {
@@ -269,7 +264,7 @@ public class MethodNode extends AnnotatedNode implements Opcodes {
     public String getText() {
         String retType = AstToTextHelper.getClassText(returnType);
         String exceptionTypes = AstToTextHelper.getThrowsClauseText(exceptions);
-        String parms = AstToTextHelper.getParametersText(parameters);
-        return AstToTextHelper.getModifiersText(modifiers) + " " + retType + " " + name + "(" + parms + ") " + exceptionTypes + " { ... }";
+        String params = AstToTextHelper.getParametersText(parameters);
+        return AstToTextHelper.getModifiersText(modifiers) + " " + retType + " " + name + "(" + params + ") " + exceptionTypes + " { ... }";
     }
 }

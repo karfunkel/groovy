@@ -20,6 +20,11 @@ package groovy.transform
 
 import groovy.transform.options.ImmutablePropertyHandler
 
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
+
 /**
  * Meta annotation used when defining immutable classes.
  * <p>
@@ -37,7 +42,14 @@ import groovy.transform.options.ImmutablePropertyHandler
  * assert c1 == c2
  * </pre>
  * The {@code @Immutable} meta-annotation corresponds to adding the following annotations:
- * {@code @ToString}, {@code @EqualsAndHashCode}, {@code @ImmutableBase}, {@code @KnownImmutable}, {@code @MapConstructor} and {@code @TupleConstructor}.
+ * {@link ToString},
+ * {@link EqualsAndHashCode},
+ * {@link ImmutableBase},
+ * {@link ImmutableOptions},
+ * {@link PropertyOptions},
+ * {@link TupleConstructor},
+ * {@link MapConstructor} and
+ * {@link KnownImmutable}.
  * Together these annotations instruct the compiler to execute the necessary transformations to add
  * the necessary getters, constructors, equals, hashCode and other helper methods that are typically
  * written when creating immutable classes with the defined properties.
@@ -167,9 +179,11 @@ import groovy.transform.options.ImmutablePropertyHandler
  * @see ToString
  * @see EqualsAndHashCode
  * @see ImmutableBase
- * @see KnownImmutable
- * @see MapConstructor
+ * @see ImmutableOptions
+ * @see PropertyOptions
  * @see TupleConstructor
+ * @see MapConstructor
+ * @see KnownImmutable
  * @see Canonical
  * @since 1.7
  */
@@ -181,5 +195,16 @@ import groovy.transform.options.ImmutablePropertyHandler
 @TupleConstructor(defaults = false)
 @MapConstructor(noArg = true, includeSuperProperties = true, includeFields = true)
 @KnownImmutable
-@AnnotationCollector(mode=AnnotationCollectorMode.PREFER_EXPLICIT_MERGED)
-@interface Immutable { }
+@AnnotationCollector(mode = AnnotationCollectorMode.PREFER_EXPLICIT_MERGED)
+@Retention(RetentionPolicy.RUNTIME)
+@Target([ElementType.TYPE])
+@interface Immutable {
+    /** No longer used directly but instead collected from {@link ImmutableOptions}. Remains for legacy handling only. */
+    Class[] knownImmutableClasses() default []
+
+    /** No longer used directly but instead collected from {@link ImmutableOptions}. Remains for legacy handling only. */
+    String[] knownImmutables() default []
+
+    /** No longer used directly but instead collected from {@link ImmutableBase}. Remains for legacy handling only. */
+    boolean copyWith() default false
+}

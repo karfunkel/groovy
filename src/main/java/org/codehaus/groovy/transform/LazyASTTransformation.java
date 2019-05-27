@@ -37,10 +37,11 @@ import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.ast.stmt.SynchronizedStatement;
 import org.codehaus.groovy.control.CompilePhase;
 import org.codehaus.groovy.control.SourceUnit;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 
 import java.lang.ref.SoftReference;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedMethod;
+import static org.apache.groovy.util.BeanUtils.capitalize;
 import static org.codehaus.groovy.ast.ClassHelper.makeWithoutCaching;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.assignS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.assignX;
@@ -51,6 +52,7 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.classX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ctorX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.declS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifElseS;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.localVarX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.notNullX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.param;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
@@ -127,7 +129,7 @@ public class LazyASTTransformation extends AbstractASTTransformation {
         // (2) keep initExpr within a declaring class method that is only called by the holder class
         // currently we have gone with (2) for simplicity with only a slight memory footprint increase in the declaring class
         final String initializeMethodName = (fullName + "_initExpr").replace('.', '_');
-        declaringClass.addMethod(initializeMethodName, ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldType,
+        addGeneratedMethod(declaringClass, initializeMethodName, ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldType,
                 Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, returnS(initExpr));
         holderClass.addField(innerFieldName, ACC_PRIVATE | ACC_STATIC | ACC_FINAL, fieldType,
                 callX(declaringClass, initializeMethodName));
@@ -139,7 +141,7 @@ public class LazyASTTransformation extends AbstractASTTransformation {
 
     private static void addDoubleCheckedLockingBody(BlockStatement body, FieldNode fieldNode, Expression initExpr) {
         final Expression fieldExpr = varX(fieldNode);
-        final VariableExpression localVar = varX(fieldNode.getName() + "_local");
+        final VariableExpression localVar = localVarX(fieldNode.getName() + "_local");
         body.addStatement(declS(localVar, fieldExpr));
         body.addStatement(ifElseS(
                 notNullX(localVar),
@@ -163,10 +165,11 @@ public class LazyASTTransformation extends AbstractASTTransformation {
     private static void addMethod(FieldNode fieldNode, BlockStatement body, ClassNode type) {
         int visibility = ACC_PUBLIC;
         if (fieldNode.isStatic()) visibility |= ACC_STATIC;
-        String propName = MetaClassHelper.capitalize(fieldNode.getName().substring(1));
-        fieldNode.getDeclaringClass().addMethod("get" + propName, visibility, type, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, body);
+        String propName = capitalize(fieldNode.getName().substring(1));
+        ClassNode declaringClass = fieldNode.getDeclaringClass();
+        addGeneratedMethod(declaringClass, "get" + propName, visibility, type, Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, body);
         if (ClassHelper.boolean_TYPE.equals(type)) {
-            fieldNode.getDeclaringClass().addMethod("is" + propName, visibility, type,
+            addGeneratedMethod(declaringClass, "is" + propName, visibility, type,
                     Parameter.EMPTY_ARRAY, ClassNode.EMPTY_ARRAY, stmt(callThisX("get" + propName)));
         }
     }
@@ -181,7 +184,7 @@ public class LazyASTTransformation extends AbstractASTTransformation {
     private static void createSoftGetter(FieldNode fieldNode, Expression initExpr, ClassNode type) {
         final BlockStatement body = new BlockStatement();
         final Expression fieldExpr = varX(fieldNode);
-        final Expression resExpr = varX("res", type);
+        final Expression resExpr = localVarX("_result", type);
         final MethodCallExpression callExpression = callX(fieldExpr, "get");
         callExpression.setSafe(true);
         body.addStatement(declS(resExpr, callExpression));
@@ -209,7 +212,7 @@ public class LazyASTTransformation extends AbstractASTTransformation {
     private static void createSoftSetter(FieldNode fieldNode, ClassNode type) {
         final BlockStatement body = new BlockStatement();
         final Expression fieldExpr = varX(fieldNode);
-        final String name = "set" + MetaClassHelper.capitalize(fieldNode.getName().substring(1));
+        final String name = "set" + capitalize(fieldNode.getName().substring(1));
         final Parameter parameter = param(type, "value");
         final Expression paramExpr = varX(parameter);
         body.addStatement(ifElseS(
@@ -219,7 +222,8 @@ public class LazyASTTransformation extends AbstractASTTransformation {
         ));
         int visibility = ACC_PUBLIC;
         if (fieldNode.isStatic()) visibility |= ACC_STATIC;
-        fieldNode.getDeclaringClass().addMethod(name, visibility, ClassHelper.VOID_TYPE, params(parameter), ClassNode.EMPTY_ARRAY, body);
+        ClassNode declaringClass = fieldNode.getDeclaringClass();
+        addGeneratedMethod(declaringClass, name, visibility, ClassHelper.VOID_TYPE, params(parameter), ClassNode.EMPTY_ARRAY, body);
     }
 
     private static Expression syncTarget(FieldNode fieldNode) {

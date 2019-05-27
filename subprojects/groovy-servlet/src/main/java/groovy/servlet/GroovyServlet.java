@@ -52,26 +52,22 @@ import java.io.IOException;
  * web.xml entry:
  *
  * <pre>
- *    &lt;servlet>
- *      &lt;servlet-name>Groovy&lt;/servlet-name>
- *      &lt;servlet-class>groovy.servlet.GroovyServlet&lt;/servlet-class>
- *    &lt;/servlet>
+ * {@code
+ *    <servlet>
+ *      <servlet-name>Groovy</servlet-name>
+ *      <servlet-class>groovy.servlet.GroovyServlet</servlet-class>
+ *    </servlet>
  *
- *    &lt;servlet-mapping>
- *      &lt;servlet-name>Groovy&lt;/servlet-name>
- *      &lt;url-pattern>*.groovy&lt;/url-pattern>
- *      &lt;url-pattern>*.gdo&lt;/url-pattern>
- *    &lt;/servlet-mapping>
+ *    <servlet-mapping>
+ *      <servlet-name>Groovy</servlet-name>
+ *      <url-pattern>*.groovy</url-pattern>
+ *      <url-pattern>*.gdo</url-pattern>
+ *    </servlet-mapping>
+ * }
  * </pre>
  *
  * <p>The URL pattern does not require the "*.groovy" mapping.  You can, for
  * example, make it more Struts-like but groovy by making your mapping "*.gdo".
- *
- * @author Sam Pullara
- * @author Mark Turansky (markturansky at hotmail.com)
- * @author Guillaume Laforge
- * @author Christian Stein
- * @author Marcel Overdijk
  *
  * @see groovy.servlet.ServletBinding
  */
@@ -119,9 +115,7 @@ public class GroovyServlet extends AbstractHttpServlet {
                 public Object call() {
                     try {
                         return ((GroovyScriptEngine) getDelegate()).run(scriptUri, binding);
-                    } catch (ResourceException e) {
-                        throw new RuntimeException(e);
-                    } catch (ScriptException e) {
+                    } catch (ResourceException | ScriptException e) {
                         throw new RuntimeException(e);
                     }
                 }

@@ -27,11 +27,8 @@ import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.runtime.InvokerHelper;
 
 /**
- * Represents a closure expression such as { statement }
- * or { i -> statement } or { i, x, String y ->  statement }
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Hamlet D'Arcy
+ * Represents a closure expression such as <pre>{ statement }</pre>
+ * or { i {@code ->} statement } or { i, x, String y {@code ->}  statement }
  */
 public class ClosureExpression extends Expression {
     
@@ -77,10 +74,16 @@ public class ClosureExpression extends Expression {
         this.code = code;
     }
 
+    /**
+     * @return an array of zero (for implicit it) or more (when explicit args given) parameters or null otherwise (representing explicit no args)
+     */
     public Parameter[] getParameters() {
         return parameters;
     }
 
+    /**
+     * @return true if one or more explicit parameters are supplied
+     */
     public boolean isParameterSpecified() {
         return parameters != null && parameters.length > 0;
     }

@@ -24,9 +24,8 @@ import java.beans.PropertyChangeSupport;
 /**
  * A simple ValueModel implementation which is a holder of an object value. 
  * Used to share local variables with closures
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public class ValueHolder implements ValueModel {
     private Object value;
     private final Class type;

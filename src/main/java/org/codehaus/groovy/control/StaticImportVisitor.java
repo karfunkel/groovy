@@ -38,7 +38,6 @@ import org.codehaus.groovy.ast.expr.ConstantExpression;
 import org.codehaus.groovy.ast.expr.ConstructorCallExpression;
 import org.codehaus.groovy.ast.expr.EmptyExpression;
 import org.codehaus.groovy.ast.expr.Expression;
-import org.codehaus.groovy.ast.expr.ListExpression;
 import org.codehaus.groovy.ast.expr.MapEntryExpression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.NamedArgumentListExpression;
@@ -49,10 +48,8 @@ import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.syntax.Types;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.apache.groovy.ast.tools.ClassNodeUtils.getPropNameForAccessor;
 import static org.apache.groovy.ast.tools.ClassNodeUtils.hasPossibleStaticMethod;
@@ -60,7 +57,10 @@ import static org.apache.groovy.ast.tools.ClassNodeUtils.hasPossibleStaticProper
 import static org.apache.groovy.ast.tools.ClassNodeUtils.hasStaticProperty;
 import static org.apache.groovy.ast.tools.ClassNodeUtils.isInnerClass;
 import static org.apache.groovy.ast.tools.ClassNodeUtils.isValidAccessorName;
-import static org.codehaus.groovy.runtime.MetaClassHelper.capitalize;
+import static org.apache.groovy.ast.tools.ClassNodeUtils.getField;
+import static org.apache.groovy.ast.tools.ExpressionUtils.transformInlineConstants;
+import static org.apache.groovy.util.BeanUtils.capitalize;
+import static org.codehaus.groovy.ast.tools.ClosureUtils.getParametersSafe;
 
 /**
  * Visitor to resolve constants and method calls from static Imports
@@ -208,6 +208,17 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
                 }
                 return result;
             }
+        } else if (v instanceof FieldNode) {
+            if (inSpecialConstructorCall) { // GROOVY-8819
+                FieldNode fn = (FieldNode) v;
+                ClassNode declaringClass = fn.getDeclaringClass();
+                if (fn.isStatic() && currentClass.isDerivedFrom(declaringClass)) {
+                    Expression result = new PropertyExpression(new ClassExpression(declaringClass), v.getName());
+                    result.setSourcePosition(ve);
+
+                    return result;
+                }
+            }
         }
         return ve;
     }
@@ -225,39 +236,6 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
         }
     }
 
-    // resolve constant-looking expressions statically (do here as gets transformed away later)
-
-    private Expression transformInlineConstants(Expression exp) {
-        if (exp instanceof PropertyExpression) {
-            PropertyExpression pe = (PropertyExpression) exp;
-            if (pe.getObjectExpression() instanceof ClassExpression) {
-                ClassExpression ce = (ClassExpression) pe.getObjectExpression();
-                ClassNode type = ce.getType();
-                if (type.isEnum()) return exp;
-                Expression constant = findConstant(getField(type, pe.getPropertyAsString()));
-                if (constant != null) return constant;
-            }
-        } else if (exp instanceof ListExpression) {
-            ListExpression le = (ListExpression) exp;
-            ListExpression result = new ListExpression();
-            for (Expression e : le.getExpressions()) {
-                result.addExpression(transformInlineConstants(e));
-            }
-            return result;
-        }
-
-        return exp;
-    }
-
-    private static Expression findConstant(FieldNode fn) {
-        if (fn != null && !fn.isEnum() && fn.isStatic() && fn.isFinal()) {
-            if (fn.getInitialValueExpression() instanceof ConstantExpression) {
-                return fn.getInitialValueExpression();
-            }
-        }
-        return null;
-    }
-
     protected Expression transformMethodCallExpression(MethodCallExpression mce) {
         Expression args = transform(mce.getArguments());
         Expression method = transform(mce.getMethod());
@@ -272,19 +250,22 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
 
         if (mce.isImplicitThis() || isExplicitThisOrSuper) {
             if (mce.isImplicitThis()) {
-                Expression ret = findStaticMethodImportFromModule(method, args);
-                if (ret != null) {
-                    setSourcePosition(ret, mce);
-                    return ret;
-                }
-                if (method instanceof ConstantExpression && !inLeftExpression) {
-                    // could be a closure field
-                    String methodName = (String) ((ConstantExpression) method).getValue();
-                    ret = findStaticFieldOrPropAccessorImportFromModule(methodName);
+                if (null == currentClass.tryFindPossibleMethod(mce.getMethodAsString(), args)) {
+
+                    Expression ret = findStaticMethodImportFromModule(method, args);
                     if (ret != null) {
-                        ret = new MethodCallExpression(ret, "call", args);
                         setSourcePosition(ret, mce);
                         return ret;
+                    }
+                    if (method instanceof ConstantExpression && !inLeftExpression) {
+                        // could be a closure field
+                        String methodName = (String) ((ConstantExpression) method).getValue();
+                        ret = findStaticFieldOrPropAccessorImportFromModule(methodName);
+                        if (ret != null) {
+                            ret = new MethodCallExpression(ret, "call", args);
+                            setSourcePosition(ret, mce);
+                            return ret;
+                        }
                     }
                 }
             } else if (currentMethod!=null && currentMethod.isStatic() && isExplicitSuper) {
@@ -326,6 +307,12 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
                             return smce;
                         }
                     }
+
+                    if (mce.isImplicitThis() && lookForPossibleStaticMethod && hasPossibleStaticMethod(currentClass, methodName, args, true)) {
+                        StaticMethodCallExpression result = new StaticMethodCallExpression(currentClass, methodName, args);
+                        result.setSourcePosition(mce);
+                        return result;
+                    }
                 }
             }
         }
@@ -365,11 +352,9 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
     protected Expression transformClosureExpression(ClosureExpression ce) {
         boolean oldInClosure = inClosure;
         inClosure = true;
-        if (ce.getParameters() != null) {
-            for (Parameter p : ce.getParameters()) {
-                if (p.hasInitialExpression()) {
-                    p.setInitialExpression(transform(p.getInitialExpression()));
-                }
+        for (Parameter p : getParametersSafe(ce)) {
+            if (p.hasInitialExpression()) {
+                p.setInitialExpression(transform(p.getInitialExpression()));
             }
         }
         Statement code = ce.getCode();
@@ -573,24 +558,6 @@ public class StaticImportVisitor extends ClassCodeExpressionTransformer {
             FieldNode field = getField(staticImportType, fieldName);
             if (field != null && field.isStatic())
                 return new PropertyExpression(new ClassExpression(staticImportType), fieldName);
-        }
-        return null;
-    }
-
-    private static FieldNode getField(ClassNode classNode, String fieldName) {
-        ClassNode node = classNode;
-        Set<String> visited = new HashSet<String>();
-        while (node != null) {
-            FieldNode fn = node.getDeclaredField(fieldName);
-            if (fn != null) return fn;
-            ClassNode[] interfaces = node.getInterfaces();
-            for (ClassNode iNode : interfaces) {
-                if (visited.contains(iNode.getName())) continue;
-                FieldNode ifn = getField(iNode, fieldName);
-                visited.add(iNode.getName());
-                if (ifn != null) return ifn;
-            }
-            node = node.getSuperClass();
         }
         return null;
     }

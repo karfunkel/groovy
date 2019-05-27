@@ -27,10 +27,10 @@ but enhances it with specific constructs for Groovy, and allows certain simplifi
 
 == Comments
 
-=== Single line comment
+=== Single-line comment
 
-Single line comments start with `//` and can be found at any position in the line.
-The characters following `//`, till the end of the line, are considered part of the comment.
+Single-line comments start with `//` and can be found at any position in the line.
+The characters following `//`, until the end of the line, are considered part of the comment.
 
 [source,groovy]
 ----
@@ -49,17 +49,17 @@ Multiline comments can thus be put at the end of a statement, or even inside a s
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=multiline_comment,indent=0]
 ----
 
-=== GroovyDoc comment
+=== Groovydoc comment
 
-Similarly to multiline comments, GroovyDoc comments are multiline, but start with `/\**` and end with `*/`.
-Lines following the first GroovyDoc comment line can optionally start with a star `*`.
+Similarly to multiline comments, Groovydoc comments are multiline, but start with `/\**` and end with `*/`.
+Lines following the first Groovydoc comment line can optionally start with a star `*`.
 Those comments are associated with:
 
 * type definitions (classes, interfaces, enums, annotations),
 * fields and properties definitions
 * methods definitions
 
-Although the compiler will not complain about GroovyDoc comments not being associated with the above language elements,
+Although the compiler will not complain about Groovydoc comments not being associated with the above language elements,
 you should prepend those constructs with the comment right before it.
 
 [source,groovy]
@@ -67,12 +67,12 @@ you should prepend those constructs with the comment right before it.
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=groovydoc_comment,indent=0]
 ----
 
-GroovyDoc follows the same conventions as Java's own JavaDoc.
-So you'll be able to use the same tags as with JavaDoc.
+Groovydoc follows the same conventions as Java's own Javadoc.
+So you'll be able to use the same tags as with Javadoc.
 
 === Shebang line
 
-Beside the single line comment, there is a special line comment, often called the _shebang_ line understood by UNIX systems
+Beside the single-line comment, there is a special line comment, often called the _shebang_ line understood by UNIX systems
 which allows scripts to be run directly from the command-line, provided you have installed the Groovy distribution
 and the `groovy` command is available on the `PATH`.
 
@@ -213,16 +213,16 @@ Text literals are represented in the form of chain of characters called strings.
 Groovy lets you instantiate `java.lang.String` objects, as well as GStrings (`groovy.lang.GString`)
 which are also called _interpolated strings_ in other programming languages.
 
-=== Single quoted string
+=== Single-quoted string
 
-Single quoted strings are a series of characters surrounded by single quotes:
+Single-quoted strings are a series of characters surrounded by single quotes:
 
 [source,groovy]
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=string_1,indent=0]
 ----
 
-NOTE: Single quoted strings are plain `java.lang.String` and don't support interpolation.
+NOTE: Single-quoted strings are plain `java.lang.String` and don't support interpolation.
 
 === String concatenation
 
@@ -233,19 +233,20 @@ All the Groovy strings can be concatenated with the `+` operator:
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=string_plus,indent=0]
 ----
 
-=== Triple single quoted string
+=== Triple-single-quoted string
 
-Triple single quoted strings are a series of characters surrounded by triplets of single quotes:
+Triple-single-quoted strings are a series of characters surrounded by triplets of single quotes:
 
 [source,groovy]
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=triple_single_0,indent=0]
 ----
 
-NOTE: Triple single quoted strings are plain `java.lang.String` and don't support interpolation.
+NOTE: Triple-single-quoted strings are plain `java.lang.String` and don't support interpolation.
 
-Triple single quoted strings are multiline.
-You can span the content of the string across line boundaries without the need to split the string in several pieces, without contatenation or newline escape characters:
+Triple-single-quoted strings may span multiple lines.
+The content of the string can cross line boundaries without the need to split the string in several pieces
+and without concatenation or newline escape characters:
 
 [source,groovy]
 ----
@@ -273,7 +274,7 @@ include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=triple_single_3,inden
 
 ==== Escaping special characters
 
-You can escape single quotes with the the backslash character to avoid terminating the string literal:
+You can escape single quotes with the backslash character to avoid terminating the string literal:
 
 [source,groovy]
 ----
@@ -294,30 +295,32 @@ Some special characters also use the backslash as escape character:
 |Escape sequence
 |Character
 
-|'\t'
+|\t
 |tabulation
 
-|'\b'
+|\b
 |backspace
 
-|'\n'
+|\n
 |newline
 
-|'\r'
+|\r
 |carriage return
 
-|'\f'
+|\f
 |formfeed
 
-|'\\'
+|\\
 |backslash
 
-|'\''
-|single quote (for single quoted and triple single quoted strings)
+|\'
+|single quote within a single-quoted string (and optional for triple-single-quoted and double-quoted strings)
 
-|'\"'
-|double quote (for double quoted and triple double quoted strings)
+|\"
+|double quote within a double-quoted string (and optional for triple-double-quoted and single-quoted strings)
 |====
+
+We'll see some more escaping details when it comes to other types of strings discussed later.
 
 ==== Unicode escape sequence
 
@@ -331,26 +334,29 @@ For example, the Euro currency symbol can be represented with:
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=string_4,indent=0]
 ----
 
-=== Double quoted string
+=== Double-quoted string
 
-Double quoted strings are a series of characters surrounded by double quotes:
+Double-quoted strings are a series of characters surrounded by double quotes:
 
 [source,groovy]
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=string_5,indent=0]
 ----
 
-NOTE: Double quoted strings are plain `java.lang.String` if there's no interpolated expression,
+NOTE: Double-quoted strings are plain `java.lang.String` if there's no interpolated expression,
 but are `groovy.lang.GString` instances if interpolation is present.
 
 NOTE: To escape a double quote, you can use the backslash character: +"A double quote: \""+.
 
 ==== String interpolation
 
-Any Groovy expression can be interpolated in all string literals, apart from single and triple single quoted strings.
+Any Groovy expression can be interpolated in all string literals, apart from single and triple-single-quoted strings.
 Interpolation is the act of replacing a placeholder in the string with its value upon evaluation of the string.
-The placeholder expressions are surrounded by `${}` or prefixed with `$` for dotted expressions.
-The expression value inside the placeholder is evaluated to its string representation when the GString is passed to a method taking a String as argument by calling `toString()` on that expression.
+The placeholder expressions are surrounded by `${}`. The curly braces may be omitted for unambiguous dotted expressions,
+i.e. we can use just a $ prefix in those cases.
+If the GString is ever passed to a method taking a String, the expression value inside the placeholder
+is evaluated to its string representation (by calling `toString()` on that expression) and the resulting
+String is passed to the method.
 
 Here, we have a string with a placeholder referencing a local variable:
 
@@ -359,7 +365,7 @@ Here, we have a string with a placeholder referencing a local variable:
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_1,indent=0]
 ----
 
-But any Groovy expression is valid, as we can see in this example with an arithmetic expression:
+Any Groovy expression is valid, as we can see in this example with an arithmetic expression:
 
 [source,groovy]
 ----
@@ -367,7 +373,7 @@ include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_2,indent=0]
 ----
 
 [NOTE]
-Not only expressions are actually allowed in between the `${}` placeholder. Statements are also allowed, but a statement's value is just `null`.
+Not only are expressions allowed in between the `${}` placeholder, but so are statements. However, a statement's value is just `null`.
 So if several statements are inserted in that placeholder, the last one should somehow return a meaningful value to be inserted. 
 For instance, +"The sum of 1 and 2 is equal to ${def a = 1; def b = 2; a + b}"+ is supported and works as expected but a good practice is usually to stick to simple expressions inside GString placeholders.
 
@@ -378,7 +384,8 @@ In addition to `${}` placeholders, we can also use a lone `$` sign prefixing a d
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_3,indent=0]
 ----
 
-But only dotted expressions of the form `a.b`, `a.b.c`, etc, are valid, but expressions that would contain parentheses like method calls, curly braces for closures, or arithmetic operators would be invalid.
+But only dotted expressions of the form `a.b`, `a.b.c`, etc, are valid. Expressions containing parentheses like method calls,
+curly braces for closures, dots which aren't part of a property expression or arithmetic operators would be invalid.
 Given the following variable definition of a number:
 
 [source,groovy]
@@ -394,6 +401,15 @@ include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_5,indent=0]
 ----
 
 NOTE: You can think of `"$number.toString()"` as being interpreted by the parser as `"${number.toString}()"`.
+
+Similarly, if the expression is ambiguous, you need to keep the curly braces:
+
+[source,groovy]
+----
+include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_3b,indent=0]
+include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_3b2,indent=0]
+include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_3b3,indent=0]
+----
 
 If you need to escape the `$` or `${}` placeholders in a GString so they appear as is without interpolation,
 you just need to use a `\` backslash character to escape the dollar sign:
@@ -476,20 +492,20 @@ include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=gstring_hashcode_2,in
 <1> The map is created with an initial pair whose key is a GString
 <2> When we try to fetch the value with a String key, we will not find it, as Strings and GString have different hashCode values
 
-=== Triple double quoted string
+=== Triple-double-quoted string
 
-Triple double quoted strings behave like double quoted strings, with the addition that they are multiline, like the triple single quoted strings.
+Triple-double-quoted strings behave like double-quoted strings, with the addition that they are multiline, like the triple-single-quoted strings.
 
 [source,groovy]
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=triple_double_1,indent=0]
 ----
 
-NOTE: Neither double quotes nor single quotes need be escaped in triple double quoted strings.
+NOTE: Neither double quotes nor single quotes need be escaped in triple-double-quoted strings.
 
 === Slashy string
 
-Beyond the usual quoted strings, Groovy offers slashy strings, which use `/` as delimiters.
+Beyond the usual quoted strings, Groovy offers slashy strings, which use `/` as the opening and closing delimiter.
 Slashy strings are particularly useful for defining regular expressions and patterns, 
 as there is no need to escape backslashes.
 
@@ -514,14 +530,14 @@ Slashy strings are multiline:
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=slashy_3,indent=0]
 ----
 
-Slashy strings can also be interpolated (ie. a GString):
+Slashy strings can be thought of as just another way to define a GString but with different escaping rules. They hence support interpolation:
 
 [source,groovy]
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=slashy_4,indent=0]
 ----
 
-There are a few gotchas to be aware of.
+==== Special cases
 
 An empty slashy string cannot be represented with a double forward slash, as it's understood by the Groovy parser as a line comment. 
 That's why the following assert would actually not compile as it would look like a non-terminated statement:
@@ -531,13 +547,23 @@ That's why the following assert would actually not compile as it would look like
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=slashy_5,indent=0]
 ----
 
-NOTE: As slashy strings were mostly designed to make regexp easier so a few things that are errors in GStrings like `$()` will work with slashy strings.
+As slashy strings were mostly designed to make regexp easier so a few things that
+are errors in GStrings like `$()` or `$5` will work with slashy strings.
+
+Remember that escaping backslashes is not required. An alternative way of thinking of this is
+that in fact escaping is not supported. The slashy string `/\t/` won't contain a tab but instead
+a backslash followed by the character 't'. Escaping is only allowed for the slash character, i.e. `/\/folder/`
+will be a slashy string containing `'/folder'`. A consequence of slash escaping is that a slashy string
+can't end with a backslash. Otherwise that will escape the slashy string terminator.
+You can instead use a special trick, `/ends with slash ${'\'}/`. But best just avoid using a slashy string in such a case.
 
 === Dollar slashy string
 
 Dollar slashy strings are multiline GStrings delimited with an opening `$/` and and a closing `/$`.
 The escaping character is the dollar sign, and it can escape another dollar, or a forward slash.
-But both dollar and forward slashes don't need to be escaped, except to escape the dollar of a string subsequence that would start like a GString placeholder sequence, or if you need to escape a sequence that would start like a closing dollar slashy string delimiter.
+But both dollar and forward slashes don't need to be escaped, except to escape the dollar of a string
+subsequence that would start like a GString placeholder sequence, or if you need to escape a sequence
+that would start like a closing dollar slashy string delimiter.
 
 Here's an example:
 
@@ -545,6 +571,9 @@ Here's an example:
 ----
 include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=dollar_slashy_1,indent=0]
 ----
+
+It was created to overcome some of the limitations of the slashy string escaping rules.
+Use it when its escaping rules suit your string contents (typically if it has some slashes you don't want to escape).
 
 === String summary table
 
@@ -556,25 +585,25 @@ include::{projectdir}/src/spec/test/SyntaxTest.groovy[tags=dollar_slashy_1,inden
 |Multiline
 |Escape character
 
-|Single quoted
+|Single-quoted
 |`'...'`
 |icon:check-empty[]
 |icon:check-empty[]
 |`\`
 
-|Triple single quoted
+|Triple-single-quoted
 |`'''...'''`
 |icon:check-empty[]
 |icon:check[]
 |`\`
 
-|Double quoted
+|Double-quoted
 |`"..."`
 |icon:check[]
 |icon:check-empty[]
 |`\`
 
-|Triple double quoted
+|Triple-double-quoted
 |`"""..."""`
 |icon:check[]
 |icon:check[]

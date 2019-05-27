@@ -20,14 +20,15 @@ import org.codehaus.groovy.gradle.ReleaseInfoGenerator
 
 buildscript {
     repositories {
-        jcenter()
-        maven {
-            name 'Bintray Asciidoctor repo'
-            url 'http://dl.bintray.com/content/aalmiray/asciidoctor'
+        if (rootProject.hasProperty('buildInChina')) {
+            // Try to use Aliyun maven repository when building in China
+            maven { url 'https://maven.aliyun.com/nexus/content/groups/public' }
         }
+        jcenter()
+        maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
         maven{
             name 'Bintray Javadoc Hotfix repo'
-            url 'http://dl.bintray.com/melix/gradle-javadoc-hotfix-plugin'
+            url 'https://dl.bintray.com/melix/gradle-javadoc-hotfix-plugin'
         }
         maven {
             url "https://plugins.gradle.org/m2/"
@@ -39,25 +40,25 @@ buildscript {
 
     dependencies {
         // using the old "classpath" style of plugins because the new one doesn't play well with multi-modules
-        classpath 'org.asciidoctor:asciidoctor-gradle-plugin:1.5.7'
+        classpath 'org.asciidoctor:asciidoctor-gradle-plugin:1.5.8'
         classpath "org.jfrog.buildinfo:build-info-extractor-gradle:3.0.3"
         classpath 'me.champeau.gradle:gradle-javadoc-hotfix-plugin:0.1'
         //classpath 'nl.javadude.gradle.plugins:license-gradle-plugin:0.11.0'
-        classpath "gradle.plugin.org.nosphere.apache:creadur-rat-gradle:0.1.3"
-        classpath "gradle.plugin.com.github.jk1:gradle-license-report:0.3.2"
-
+        classpath "gradle.plugin.org.nosphere.apache:creadur-rat-gradle:0.3.1"
+        classpath "gradle.plugin.com.github.jk1:gradle-license-report:1.3"
     }
 }
 
 plugins {
-    id 'com.gradle.build-scan' version '1.12.1'
+    id 'com.gradle.build-scan' version '2.3'
     id 'me.champeau.buildscan-recipes' version '0.2.3'
+    id 'com.github.spotbugs' version '1.7.1'
+    id "com.github.ben-manes.versions" version '0.21.0'
 }
 
 buildScan {
-    licenseAgreementUrl = 'https://gradle.com/terms-of-service'
-    licenseAgree = 'yes'
-    publishAlways()
+    termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+    apply from: 'gradle/build-scans.gradle'
 }
 
 buildScanRecipes {
@@ -67,7 +68,7 @@ buildScanRecipes {
 }
 
 ext.modules = {
-    subprojects.findAll{ !['performance'].contains(it.name) }
+    subprojects.findAll{ !['performance', 'binary-compatibility'].contains(it.name) }
 }
 ext.isReleaseVersion = !groovyVersion.toLowerCase().endsWith("snapshot")
 
@@ -92,10 +93,11 @@ allprojects {
     repositories {
         if (rootProject.hasProperty('buildInChina')) {
             // Try to use Aliyun maven repository when building in China
-            maven { url 'http://maven.aliyun.com/nexus/content/groups/public' }
+            maven { url 'https://maven.aliyun.com/nexus/content/groups/public' }
         }
         jcenter()
-        maven { url 'http://dl.bintray.com/melix/thirdparty-apache' } // openbeans
+//        maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+        maven { url 'https://dl.bintray.com/melix/thirdparty-apache' } // openbeans
     }
 
     ext.buildDate = isReleaseVersion?new Date():new Date(0)
@@ -128,49 +130,41 @@ test.dependsOn(copyTestResources)
 
 repositories {
     // todo Some repos are needed only for some configs. Declare them just for the configuration once Gradle allows this.
-    maven { url 'http://repository.jboss.org/nexus/content/groups/m2-release-proxy' } // examples, tools
-    maven { url 'http://repo.bodar.com' } // tools - jarjar
+    maven { url 'https://repository.jboss.org/nexus/content/groups/m2-release-proxy' } // tools
 }
 
-// todo do we need compile and runtime scope for examples?
 configurations {
     compilerCompile
     tools
-    examplesCompile.extendsFrom compile
-    examplesRuntime.extendsFrom examplesCompile
     antlr2
     spec
 }
 
 ext {
-    antVersion = '1.10.3'
-    asmVersion = '6.1.1'
+    antVersion = '1.10.5'
+    asmVersion = '7.1'
     antlrVersion = '2.7.7'
-    bridgerVersion = '1.1.Final'
+    bridgerVersion = '1.5.Final'
     coberturaVersion = '1.9.4.1'
     commonsCliVersion = '1.4'
-    commonsHttpClientVersion = '3.1'
-    eclipseOsgiVersion = '3.9.1-v20140110-1610'
     gparsVersion = '1.2.1'
     ivyVersion = '2.5.0-rc1'
     jansiVersion = '1.17.1'
-    jarjarVersion = '1.6.5'
+    jarjarVersion = '1.7.2'
     jlineVersion = '2.14.6'
     jmockVersion = '1.2.0'
     logbackVersion = '1.1.7'
     log4jVersion = '1.2.17'
     log4j2Version = '2.8'
-    luceneVersion = '4.7.2'
     openbeansVersion = '1.0'
-    openejbVersion = '1.0'
-    picocliVersion = '3.0.2'
+    picocliVersion = '3.9.6'
     qdoxVersion = '1.12.1'
-    slf4jVersion = '1.7.21'
+    slf4jVersion = '1.7.25'
     xmlunitVersion = '1.6'
-    xstreamVersion = '1.4.10'
+    xstreamVersion = '1.4.11.1'
     spockVersion = '1.2-groovy-2.4-SNAPSHOT' // supports 3.0
-    antlr4Version = '4.7.1'
-    jsr305Version = '3.0.2'
+    antlr4Version = '4.7.3'
+    spotbugsannotationsVersion = '3.1.11'
 }
 
 dependencies {
@@ -194,9 +188,8 @@ dependencies {
     compile("org.apache.ivy:ivy:$ivyVersion") {
         transitive = false
     }
-    compile files("${buildDir}/generated-classes")
 
-    compileOnly "com.google.code.findbugs:jsr305:$jsr305Version"
+    compileOnly "com.github.spotbugs:spotbugs-annotations:$spotbugsannotationsVersion"
 
     runtime("org.codehaus.gpars:gpars:$gparsVersion") {
         exclude(group: 'org.codehaus.groovy', module: 'groovy-all')
@@ -210,9 +203,6 @@ dependencies {
     testCompile "org.apache.logging.log4j:log4j-core:$log4j2Version"
     testCompile "org.slf4j:jcl-over-slf4j:$slf4jVersion"
     testCompile "com.thoughtworks.qdox:qdox:$qdoxVersion"
-    if (JavaVersion.current().isJava9Compatible()) {
-        testRuntime 'javax.xml.bind:jaxb-api:2.3.0'
-    }
 
     tools "org.pantsbuild:jarjar:$jarjarVersion"
     tools "org.jboss.bridger:bridger:$bridgerVersion"
@@ -225,53 +215,39 @@ dependencies {
     tools "org.ow2.asm:asm:$asmVersion"
     tools "com.thoughtworks.qdox:qdox:$qdoxVersion"
 
-    examplesCompile project(':groovy-test')
-    examplesCompile project(':groovy-swing')
-
-    examplesCompile "org.apache.lucene:lucene-core:$luceneVersion"
-    examplesCompile "org.apache.lucene:lucene-analyzers-common:$luceneVersion"
-    examplesCompile "org.apache.lucene:lucene-queryparser:$luceneVersion"
-    examplesCompile "org.eclipse:osgi:$eclipseOsgiVersion"
-    examplesRuntime("commons-httpclient:commons-httpclient:$commonsHttpClientVersion") {
-        exclude(module: 'junit')
-        exclude(module: 'commons-logging')
-        exclude(module: 'commons-codec')
-    }
-    examplesRuntime("openejb:openejb-loader:$openejbVersion") {
-        exclude(module: 'log4j')
-        exclude(module: 'openejb-core')
-        exclude(module: 'geronimo-jta_1.0.1B_spec')
-        exclude(module: 'geronimo-servlet_2.4_spec')
-        exclude(module: 'geronimo-ejb_2.1_spec')
-        exclude(module: 'geronimo-j2ee-connector_1.5_spec')
-    }
-
     antlr2 "org.apache.ant:ant-antlr:$antVersion"
 
     testCompile project(':groovy-ant')
+    testCompile project(':groovy-xml')
     testCompile project(':groovy-dateutil')
     testCompile project(':groovy-test')
     testCompile project(':groovy-macro')
 }
 
-ext.generatedDirectory = "${buildDir}/generated-sources"
+ext.generatedDirectory = "${buildDir}/generated/sources"
 
 sourceSets {
     main {
         java {
-            // the only reason we add src/main/groovy here is for the bootstrap compiler
-            srcDir 'src/main/groovy'
-            srcDir "$generatedDirectory/src/main"
+            srcDir "$generatedDirectory/antlr2/src/main"
             if (!JavaVersion.current().isJava8Compatible()) {
                 exclude '**/v8/*'
                 exclude '**/vm8/*'
             }
+            if (!JavaVersion.current().isJava9Compatible()) {
+                exclude '**/v9/*'
+                exclude '**/vm9/*'
+            }
         }
         groovy {
-            srcDir "$generatedDirectory/src/main"
+            srcDir "$generatedDirectory/antlr2/src/main"
             if (!JavaVersion.current().isJava8Compatible()) {
                 exclude '**/v8/*'
                 exclude '**/vm8/*'
+            }
+            if (!JavaVersion.current().isJava9Compatible()) {
+                exclude '**/v9/*'
+                exclude '**/vm9/*'
             }
         }
         resources {
@@ -290,6 +266,10 @@ sourceSets {
                 exclude '**/v8/*'
                 exclude '**/vm8/*'
             }
+            if (!JavaVersion.current().isJava9Compatible()) {
+                exclude '**/v9/*'
+                exclude '**/vm9/*'
+            }
         }
         resources {
             srcDirs = ['src/test-resources']
@@ -298,15 +278,6 @@ sourceSets {
     tools {
         compileClasspath = sourceSets.main.runtimeClasspath + configurations.tools
         runtimeClasspath = output + compileClasspath
-    }
-    examples {
-        groovy {
-            srcDirs = ['src/examples']
-        }
-        resources {
-            srcDirs = ['src/examples']
-        }
-        compileClasspath = configurations.examplesRuntime + sourceSets.main.output + project(':groovy-xml').sourceSets.main.output
     }
 }
 
@@ -327,29 +298,12 @@ subprojects {
 
 apply from: 'subprojects/parser-antlr4/build.gradle'
 
-// make sure examples can be compiled, even if we don't run them
-// todo: reorganize examples so that we can run them too
-check {
-    dependsOn examplesClasses
-}
-
-compileJava {
-    doLast {
-        ant.java(classname:'org.jboss.bridger.Bridger', classpath: rootProject.configurations.tools.asPath, outputproperty: 'stdout') {
-            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/runtime/DefaultGroovyMethods.class")
-            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/runtime/StringGroovyMethods.class")
-            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/classgen/Verifier.class")
-        }
-        ant.echo('Bridger: ' + ant.properties.stdout)
-    }
-}
-
 task ensureGrammars {
     outputs.cacheIf { true }
     description = 'Ensure all the Antlr2 generated files are up to date.'
     ext.antlrDirectory = "$projectDir/src/main/antlr2/org/codehaus/groovy/antlr"
     ext.javaParserDirectory = "$ext.antlrDirectory/java"
-    ext.genPath = "$generatedDirectory/src/main/org/codehaus/groovy/antlr"
+    ext.genPath = "$generatedDirectory/antlr2/src/main/org/codehaus/groovy/antlr"
     ext.groovyOutDir = "$ext.genPath/parser"
     ext.javaOutDir = "$ext.genPath/java"
     inputs.dir(antlrDirectory)
@@ -370,6 +324,20 @@ task ensureGrammars {
                 classpath path: configurations.compile.asPath
             }
         }
+    }
+}
+
+compileJava {
+    dependsOn ensureGrammars, generateGrammarSource
+    options.fork(memoryMaximumSize: javacMain_mx)
+
+    doLast {
+        ant.java(classname:'org.jboss.bridger.Bridger', classpath: rootProject.configurations.tools.asPath, outputproperty: 'stdout') {
+            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/runtime/DefaultGroovyMethods.class")
+            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/runtime/StringGroovyMethods.class")
+            arg(value: "${sourceSets.main.java.outputDir.canonicalPath}/org/codehaus/groovy/classgen/Verifier.class")
+        }
+        ant.echo('Bridger (groovy): ' + ant.properties.stdout)
     }
 }
 
@@ -398,11 +366,6 @@ task dgmConverter(dependsOn:compileJava) {
     outputs.dir outputDir
 }
 
-compileJava {
-    dependsOn ensureGrammars
-    options.fork(memoryMaximumSize: javacMain_mx)
-}
-
     // Gradle classloading magic with Groovy will only work if it finds a *jar*
     // on classpath. This "bootstrap jar" contains the minimal compiler, without .groovy compiled files
 
@@ -421,6 +384,7 @@ allprojects {
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
         options.incremental = true
+        //options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 
         if (classpath) {
             classpath = classpath + files(dgmConverter.outputDir)
@@ -441,6 +405,7 @@ allprojects {
     tasks.withType(GroovyCompile) {
         groovyOptions.fork(memoryMaximumSize: groovycMain_mx)
         groovyOptions.encoding = 'UTF-8'
+        //options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
         groovyClasspath = files(
                 rootProject.compileJava.classpath,
                 files(project==rootProject?rootProject.bootstrapJar:rootProject.jar)
@@ -461,14 +426,18 @@ task checkCompatibility {
     }
 }
 
-if (!JavaVersion.current().java8Compatible) {
+if (!JavaVersion.current().java9Compatible) {
     logger.lifecycle '''
     **************************************** WARNING ********************************************
-    ******   You are running the build with an older JDK. NEVER try to release with 1.7.   ******
-    ******   You must use a JDK 1.8+ in order to compile all features of the language.     ******
+    ******   You are running the build with an older JDK. NEVER try to release with 1.8.   ******
+    ******   You must use a JDK 1.9+ in order to compile all features of the language.     ******
     *********************************************************************************************
 '''
 }
+
+// Workaround to be able to access SpotBugsTask from external gradle script.
+// More info: https://discuss.gradle.org/t/buildscript-dependencies-in-external-script/23243
+project.extensions.extraProperties.set('SpotBugsTask', com.github.spotbugs.SpotBugsTask)
 
 apply from: 'gradle/test.gradle'
 apply from: 'gradle/groovydoc.gradle'
@@ -478,7 +447,6 @@ apply from: 'gradle/upload.gradle'
 apply from: 'gradle/idea.gradle'
 apply from: 'gradle/eclipse.gradle'
 apply from: 'gradle/quality.gradle'
-apply from: 'gradle/jdk9.gradle'
 apply from: 'gradle/parallel-build-fixes.gradle'
 
 // If a local configuration file for tweaking the build is present, apply it
@@ -507,3 +475,21 @@ licenseReport {
 //licenseFormat.dependsOn licenseFormatCustom
 //licenseFormat.dependsOn licenseFormatGradle
 //
+
+def checkRepo(repo) {
+    if (repo instanceof MavenArtifactRepository) {
+        def repoUrl = repo.url.toString()
+        if (repoUrl.startsWith("http://")) {
+            throw new GradleException("Build should not use insecure HTTP-based URLs for repositories. Found: " + repoUrl)
+        }
+    }
+}
+
+project.afterEvaluate {
+    allprojects.repositories.each { handler ->
+        handler.each { checkRepo(it) }
+    }
+    buildscript.repositories.each { handler ->
+        handler.each { checkRepo(it) }
+    }
+}

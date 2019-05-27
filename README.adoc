@@ -25,10 +25,10 @@ The Groovy development team
 :build-icon: http://ci.groovy-lang.org:8111/app/rest/builds/buildType:(id:Groovy_Jdk7Build)/statusIcon
 :travis-build-icon: https://travis-ci.org/apache/groovy.svg?branch=master
 :noheader:
-:groovy-www: http://groovy-lang.org/
+:groovy-www: https://groovy-lang.org/
 :groovy-ci: http://ci.groovy-lang.org?guest=1
 :travis-ci: https://travis-ci.org/apache/groovy
-:jdk: http://www.oracle.com/technetwork/java/javase/downloads
+:jdk: https://www.oracle.com/technetwork/java/javase/downloads
 :bintray-latest-version-image: https://api.bintray.com/packages/groovy/maven/groovy/images/download.png
 :bintray-latest-version-link: https://bintray.com/groovy/maven/groovy/_latestVersion
 :bintray-watch-image: https://www.bintray.com/docs/images/bintray_badge_color.png
@@ -39,7 +39,11 @@ The Groovy development team
 :apache-groovy-twitter-link: https://twitter.com/intent/follow?screen_name=ApacheGroovy
 :jdk-icon: https://img.shields.io/badge/java-8+-4c7e9f.svg
 :bintray-download-icon: https://api.bintray.com/packages/groovy/maven/groovy/images/download.svg
-
+:opencollective-link: https://opencollective.com/friends-of-groovy
+:sponsors-silver-img: https://opencollective.com/friends-of-groovy/tiers/silver-sponsor.svg?avatarHeight=45&width=890
+:sponsors-bronze-img: https://opencollective.com/friends-of-groovy/tiers/bronze-sponsor.svg?avatarHeight=40&width=890
+:backers-monthly-img: https://opencollective.com/friends-of-groovy/tiers/backer.svg?avatarHeight=36&width=890
+:backers-all-img: https://opencollective.com/friends-of-groovy/backers.svg?avatarHeight=32&width=890
 
 [.left.text-left]
 image::https://raw.githubusercontent.com/groovy/artwork/master/medium.png[]
@@ -72,7 +76,7 @@ You don't need the source code to use Apache Groovy but if you wish to explore i
 
 Apache Groovy uses Git. The official Git repository is at:
 
-    https://git-wip-us.apache.org/repos/asf/groovy.git
+    https://gitbox.apache.org/repos/asf/groovy.git
 
 And a mirror is hosted on Github:
 
@@ -155,7 +159,7 @@ Then open the generated project and the generated subprojects in Eclipse. But be
 
 To build the documentation (Groovy Language Documentation):
 
-    gradlew assembleAsciidoc
+    gradlew asciidoc
 
 All code samples of the documentation guide are pulled from actual test cases. To run a single documentation test case, take for example `src/spec/test/semantics/PowerAssertTest.groovy`
 
@@ -182,6 +186,29 @@ The official CI server runs {groovy-ci}[here] and is sponsored by http://www.jet
 == Java Profiler
 
 Groovy core team tunes performance through YourKit Java Profiler, which is sponsored by https://www.yourkit.com[YourKit].
+
+== Friends of Groovy Open Collective
+As an independent initiative, we have set up an open collective for Groovy:
+
+https://opencollective.com/friends-of-groovy
+
+This initiative is designed to complement the Apache project and the many contributions we get from our great community and supporters.
+
+Thank you to our Silver Sponsors:
+
+image:{sponsors-silver-img}[]
+
+Thank you to our Bronze Sponsors:
+
+image:{sponsors-bronze-img}[]
+
+Thank you to our backers(donating monthly):
+
+image:{backers-monthly-img}[]
+
+Thank you to all our backers:
+
+image:{backers-all-img}[]
 
 == License
 

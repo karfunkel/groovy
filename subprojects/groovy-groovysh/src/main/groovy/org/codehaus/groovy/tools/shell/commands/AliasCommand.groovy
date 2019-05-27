@@ -26,9 +26,8 @@ import org.codehaus.groovy.tools.shell.completion.CommandNameCompleter
 
 /**
  * The 'alias' command.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
+@Deprecated
 class AliasCommand
     extends CommandSupport
 {

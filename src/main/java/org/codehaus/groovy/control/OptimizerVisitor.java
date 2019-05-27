@@ -110,12 +110,12 @@ public class OptimizerVisitor extends ClassCodeExpressionTransformer {
             return;
         }
         String name;
-        while (true) {
+        do {
             name = "$const$" + index++;
-            if (currentClass.getDeclaredField(name) == null) break;
-        }
+        } while (currentClass.getDeclaredField(name) != null);
+        // TODO consider moving initcode to <clinit> and remaking field final
         field = new FieldNode(name,
-                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC | Opcodes.ACC_FINAL,
+                Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_SYNTHETIC,
                 constantExpression.getType(),
                 currentClass,
                 constantExpression);

@@ -26,9 +26,8 @@ import java.util.Map;
 
 /**
  * Lazy evaluated representation of child nodes filtered by a Closure.
- *
- * @author John Wilson
  */
+@Deprecated
 public class FilteredNodeChildren extends NodeChildren {
     private final Closure closure;
 

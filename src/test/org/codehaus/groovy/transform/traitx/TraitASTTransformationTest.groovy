@@ -524,7 +524,7 @@ assert MyEnum.X.bar == 123 && MyEnum.Y.bar == 0
             @groovy.transform.CompileStatic
             class StringProvider implements Provider<String> {}
             def c = new StringProvider()
-            assert c.get('foo') == 'foo\'
+            assert c.get('foo') == 'foo'
         '''
     }
 
@@ -1344,7 +1344,8 @@ class Person implements ListTrait<String> {
 }
 def p = new Person()
 p.foo()
-assert p.get(0) == 'bar\''''
+assert p.get(0) == 'bar'
+'''
     }
 
     void testAnnotationShouldBeCarriedOver() {
@@ -2423,10 +2424,10 @@ assert c.b() == 2
                 String version
             }
             def module = configure(Module) {
-                name = 'test\'
-                version = '1.0\'
+                name = 'test'
+                version = '1.0'
             }
-            assert module.value == 'test-1.0\'
+            assert module.value == 'test-1.0'
         '''
 
         assertScript '''
@@ -2458,4 +2459,258 @@ assert c.b() == 2
         '''
     }
 
+    //GROOVY-8281
+    void testFinalFieldsDependency() {
+        assertScript '''
+            trait MyTrait {
+                private final String foo = 'foo'
+                private final String foobar = foo.toUpperCase() + 'bar'
+                int foobarSize() { foobar.size() }
+            }
+
+            class Baz implements MyTrait {}
+
+            assert new Baz().foobarSize() == 6
+        '''
+    }
+
+    //GROOVY-8282
+    void testBareNamedArgumentPrivateMethodCall() {
+        assertScript '''
+            trait BugReproduction {
+                def foo() {
+                    bar(a: 1)
+                }
+                private String bar(Map args) {
+                    args.collect{ k, v -> "$k$v" }.join()
+                }
+            }
+
+            class Main implements BugReproduction {}
+
+            assert new Main().foo() == 'a1'
+        '''
+    }
+
+    //GROOVY-8730
+    void testAbstractMethodsNotNeededInHelperClass() {
+        assertScript '''
+            import static groovy.test.GroovyAssert.shouldFail
+
+            trait Foo { abstract bar() }
+
+            // appears in interface as expected
+            assert Foo.getMethod("bar", [] as Class[])
+
+            // shouldn't appear in trait helper
+            shouldFail(NoSuchMethodException) {
+                // first and only inner class is the trait helper
+                // fragile if current implementation changes drastically
+                Foo.classes[0].getMethod("bar", [Foo] as Class[])
+            }
+        '''
+    }
+
+    //GROOVY-8731
+    void testStaticMethodsIgnoredWhenExistingInstanceMethodsFound() {
+        assertScript '''
+            trait StaticFooBarBaz {
+                static int foo() { 100 }
+                static int baz() { 200 }
+                static int bar() { 300 }
+            }
+
+            trait InstanceBar {
+                int bar() { -10 }
+            }
+
+            class FooBarBaz implements StaticFooBarBaz, InstanceBar {
+                int baz() { -20 }
+            }
+
+            assert FooBarBaz.foo() == 100
+            new FooBarBaz().with {
+                assert bar() == -10
+                assert baz() == -20
+            }
+        '''
+    }
+
+    //GROOVY-6716
+    void testAnonymousInnerClassStyleTraitUsage() {
+        assertScript '''
+            interface Foo { def foo() }
+            def f = new Foo() { def foo() { 42 } }
+            assert f.foo() == 42
+
+            abstract class Baz { abstract baz() }
+            def bz = new Baz() { def baz() { 42 } }
+            assert bz.baz() == 42
+
+            trait Bar { def bar() { 42 } }
+            def b = new Bar() {}
+            assert b.bar() == 42
+        '''
+    }
+
+    //GROOVY-8722
+    void testFinalModifierSupport() {
+        assertScript '''
+            import static java.lang.reflect.Modifier.isFinal
+
+            trait Foo {
+                final int bar() { 2 }
+                final int baz() { 4 }
+            }
+
+            trait Foo2 {
+                int baz() { 6 }
+            }
+
+            class FooFoo2 implements Foo, Foo2 { }
+
+            class Foo2Foo implements Foo2, Foo {
+                int bar() { 8 }
+            }
+
+            def isFinal(Class k, String methodName) {
+                isFinal(k.getMethod(methodName, [] as Class[]).modifiers)
+            }
+
+            new Foo2Foo().with {
+                assert bar() == 8
+                assert baz() == 4
+                assert !isFinal(Foo2Foo, 'bar')
+                assert isFinal(Foo2Foo, 'baz')
+            }
+
+            new FooFoo2().with {
+                assert bar() == 2
+                assert baz() == 6
+                assert isFinal(FooFoo2, 'bar')
+                assert !isFinal(FooFoo2, 'baz')
+            }
+        '''
+        assertScript '''
+            trait Startable {
+                final int start() { doStart() * 2 }
+                abstract int doStart()
+            }
+
+            abstract class Base implements Startable { }
+
+            class Application extends Base {
+                int doStart() { 21 }
+            }
+
+            assert new Application().start() == 42
+        '''
+    }
+
+    //GROOVY-8880
+    void testTraitWithInitBlock() {
+        assertScript '''
+            trait MyTrait {
+                final String first = 'FOO'
+                final String last = 'BAR'
+                String full
+
+                {
+                    full = "$first$last"
+                }
+            }
+
+            class MyClass implements MyTrait { }
+
+            def mc = new MyClass()
+            assert mc.full == 'FOOBAR'
+        '''
+    }
+
+    //GROOVY-8880
+    void testTraitWithStaticInitBlock() {
+        assertScript '''
+            trait MyTrait {
+                static final String first = 'FOO'
+                static final String last = 'BAR'
+                static String full
+                static {
+                    full = "$first$last"
+                }
+            }
+
+            class MyClass implements MyTrait { }
+
+            assert MyClass.full == 'FOOBAR'
+        '''
+    }
+
+    //GROOVY-8892
+    void testTraitWithStaticInitBlockWithAndWithoutProps() {
+        assertScript '''
+            class Counter {
+                static int count = 0
+            }
+            trait TraitNoProps {
+                {
+                    Counter.count += 1
+                }
+            }
+            trait TraitWithProp {
+                Integer instanceCounter //immutable, non-shareable
+                {
+                    Counter.count += 10
+                    instanceCounter = 1
+                }
+            }
+            class ClassWithTraits implements TraitNoProps, TraitWithProp { }
+            assert new ClassWithTraits().instanceCounter == 1
+            assert Counter.count == 11
+        '''
+    }
+
+    //GROOVY-8954
+    void testTraitWithPropertyAlsoFromInterfaceSC() {
+        assertScript '''
+            interface DomainProp {
+                boolean isNullable()
+            }
+
+            abstract class OrderedProp implements DomainProp { }
+
+            trait Nullable {
+                boolean nullable = true
+            }
+
+            @groovy.transform.CompileStatic
+            abstract class CustomProp extends OrderedProp implements Nullable { }
+
+            assert new CustomProp() {}
+        '''
+    }
+
+    //GROOVY-8272
+    void testTraitAccessToInheritedStaticMethods() {
+        assertScript '''
+            import groovy.transform.CompileStatic
+
+            @CompileStatic
+            trait Foo {
+                static String go() {
+                    'Go!'
+                }
+            }
+
+            @CompileStatic
+            trait Bar extends Foo {
+                String doIt() {
+                    go().toUpperCase()
+                }
+            }
+
+            class Main implements Bar {}
+
+            assert new Main().doIt() == 'GO!'
+        '''
+    }
 }

@@ -22,8 +22,7 @@ import groovy.lang.Closure;
 import groovy.lang.GroovyRuntimeException;
 import groovy.lang.Writable;
 import groovy.util.Node;
-import groovy.util.XmlNodePrinter;
-import groovy.util.slurpersupport.GPathResult;
+import groovy.xml.slurpersupport.GPathResult;
 import org.apache.groovy.io.StringBuilderWriter;
 import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
@@ -55,8 +54,6 @@ import java.net.URL;
 
 /**
  * Used for pretty printing XML content and other XML related utilities.
- *
- * @author Paul King
  */
 public class XmlUtil {
     /**
@@ -411,7 +408,7 @@ public class XmlUtil {
     private static String asString(GPathResult node) {
         // little bit of hackery to avoid Groovy dependency in this file
         try {
-            Object builder = ((Class) Class.forName("groovy.xml.StreamingMarkupBuilder")).newInstance();
+            Object builder = Class.forName("groovy.xml.StreamingMarkupBuilder").getDeclaredConstructor().newInstance();
             InvokerHelper.setProperty(builder, "encoding", "UTF-8");
             Writable w = (Writable) InvokerHelper.invokeMethod(builder, "bindNode", node);
             return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + w.toString();

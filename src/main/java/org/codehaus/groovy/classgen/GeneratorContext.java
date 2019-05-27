@@ -27,14 +27,12 @@ import org.codehaus.groovy.ast.MethodNode;
 
 /**
  * A context shared across generations of a class and its inner classes
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
 public class GeneratorContext {
 
     private int innerClassIdx = 1;
     private int closureClassIdx = 1;
-    private int lambdaClassIdx = 1;
+    private int syntheticMethodIdx = 0;
     private final CompileUnit compileUnit;
     
     public GeneratorContext(CompileUnit compileUnit) {
@@ -77,6 +75,13 @@ public class GeneratorContext {
         return methodName + "_" + classifier + closureClassIdx++;
     }
 
+    public String getNextConstructorReferenceSyntheticMethodName(MethodNode enclosingMethodNode) {
+        return "ctorRef$"
+                + (null == enclosingMethodNode
+                        ? ""
+                        : enclosingMethodNode.getName().replace("<", "").replace(">", "") + "$" )
+                + syntheticMethodIdx++;
+    }
 
     private static final int MIN_ENCODING = ' ';
     private static final int MAX_ENCODING = ']';

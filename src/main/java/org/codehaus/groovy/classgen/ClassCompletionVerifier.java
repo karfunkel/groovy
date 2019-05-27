@@ -43,7 +43,6 @@ import org.codehaus.groovy.ast.expr.VariableExpression;
 import org.codehaus.groovy.ast.stmt.CatchStatement;
 import org.codehaus.groovy.ast.tools.GeneralUtils;
 import org.codehaus.groovy.control.SourceUnit;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.codehaus.groovy.syntax.Types;
 import org.codehaus.groovy.transform.trait.Traits;
 
@@ -62,6 +61,7 @@ import static java.lang.reflect.Modifier.isStrict;
 import static java.lang.reflect.Modifier.isSynchronized;
 import static java.lang.reflect.Modifier.isTransient;
 import static java.lang.reflect.Modifier.isVolatile;
+import static org.apache.groovy.util.BeanUtils.capitalize;
 import static org.codehaus.groovy.ast.ClassHelper.VOID_TYPE;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
@@ -411,7 +411,7 @@ public class ClassCompletionVerifier extends ClassCodeVisitorSupport {
         msg.append(" in ");
         msg.append(superMethod.getDeclaringClass().getName());
         msg.append("; attempting to assign weaker access privileges; was ");
-        msg.append(superMethod.isPublic() ? "public" : "protected");
+        msg.append(superMethod.isPublic() ? "public" : (superMethod.isProtected() ? "protected" : "package-private"));
         addError(msg.toString(), method);
     }
 
@@ -463,8 +463,9 @@ public class ClassCompletionVerifier extends ClassCodeVisitorSupport {
         for (MethodNode superMethod : cn.getSuperClass().getMethods(mn.getName())) {
             Parameter[] superParams = superMethod.getParameters();
             if (!hasEqualParameterTypes(params, superParams)) continue;
-            if ((mn.isPrivate() && !superMethod.isPrivate()) ||
-                    (mn.isProtected() && superMethod.isPublic())) {
+            if ((mn.isPrivate() && !superMethod.isPrivate())
+                    || (mn.isProtected() && !superMethod.isProtected() && !superMethod.isPrivate())
+                    || (!mn.isPrivate() && !mn.isProtected() && !mn.isPublic() && (superMethod.isPublic() || superMethod.isProtected()))) {
                 addWeakerAccessError(cn, mn, params, superMethod);
                 return;
             }
@@ -537,11 +538,11 @@ public class ClassCompletionVerifier extends ClassCodeVisitorSupport {
     private void checkDuplicateProperties(PropertyNode node) {
         ClassNode cn = node.getDeclaringClass();
         String name = node.getName();
-        String getterName = "get" + MetaClassHelper.capitalize(name);
+        String getterName = "get" + capitalize(name);
         if (Character.isUpperCase(name.charAt(0))) {
             for (PropertyNode propNode : cn.getProperties()) {
                 String otherName = propNode.getField().getName();
-                String otherGetterName = "get" + MetaClassHelper.capitalize(otherName);
+                String otherGetterName = "get" + capitalize(otherName);
                 if (node != propNode && getterName.equals(otherGetterName)) {
                     String msg = "The field " + name + " and " + otherName + " on the class " +
                             cn.getName() + " will result in duplicate JavaBean properties, which is not allowed";

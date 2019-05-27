@@ -49,6 +49,24 @@ class NamedVariantTransformTest extends GroovyShellTestCase {
         '''
     }
 
+    void testNamedParamWithRename() {
+        assertScript '''
+            import groovy.transform.*
+
+            @ToString(includeNames=true)
+            class Color {
+                Integer r, g, b
+            }
+
+            @NamedVariant
+            String m(@NamedDelegate Color color, @NamedParam('a') int alpha) {
+                return [color, alpha].join(' ')
+            }
+
+            assert m(r:1, g:2, b:3, a: 0) == 'Color(r:1, g:2, b:3) 0'
+        '''
+    }
+
     void testNamedParamConstructor() {
         assertScript """
             import groovy.transform.*
@@ -125,4 +143,17 @@ class NamedVariantTransformTest extends GroovyShellTestCase {
         '''
     }
 
+    void testGeneratedMethodsSkipped() {
+        assertScript '''
+            import groovy.transform.*
+            import static org.codehaus.groovy.transform.NamedVariantTransformTest.*
+
+            @NamedVariant
+            def baz(@NamedDelegate Storm st, @NamedDelegate Switch sw) { st.front + sw.back }
+            assert baz(front: 'Hello', back: 'World') == 'HelloWorld'
+        '''
+    }
+
+    static class Storm { String front }
+    static class Switch { String back }
 }

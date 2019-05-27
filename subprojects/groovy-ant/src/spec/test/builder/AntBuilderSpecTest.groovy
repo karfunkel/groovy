@@ -17,27 +17,22 @@
  *  under the License.
  */
 package builder
+
+import groovy.ant.AntTestCase
+
 /**
  * Test cases for the Ant builder documentation.
  */
-class AntBuilderSpecTest extends GroovyTestCase {
+class AntBuilderSpecTest extends AntTestCase {
 
-    void doInTmpDir(Closure cl) {
+    void testEcho() {
+        /*
         // tag::create_zip_builder[]
         def ant = new AntBuilder()
         // end::create_zip_builder[]
-        def baseDir = File.createTempDir()
-        ant.project.baseDir = baseDir
-        try {
-            cl.call(ant, new FileTreeBuilder(baseDir))
-        } finally {
-            baseDir.deleteDir()
-        }
-    }
-
-    void testEcho() {
+        */
         // tag::example_echo[]
-        def ant = new AntBuilder()          // <1>
+        def ant = new groovy.ant.AntBuilder()          // <1>
         ant.echo('hello from Ant!')         // <2>
         // end::example_echo[]
     }
@@ -57,17 +52,17 @@ class AntBuilderSpecTest extends GroovyTestCase {
         doInTmpDir {ant, baseDir ->
             baseDir.src {
                 test {
-                    groovy {
+                    some {
                         'test1.groovy'('assert 1+1==2')
                         'test2.groovy'('assert 1+1==2')
-                        util {
-                            'AntTest.groovy'('assert 1+1==2')
+                        pkg {
+                            'MyTest.groovy'('assert 1+1==2')
                         }
                     }
                 }
             }
             // tag::copy_files[]
-            // lets just call one task
+            // let's just call one task
             ant.echo("hello")
 
             // here is an example of a block of Ant inside GroovyMarkup
@@ -83,8 +78,8 @@ class AntBuilderSpecTest extends GroovyTestCase {
                 echo("done")
             }
 
-            // now lets do some normal Groovy again
-            def file = new File(ant.project.baseDir,"target/AntTest/groovy/util/AntTest.groovy")
+            // now let's do some normal Groovy again
+            def file = new File(ant.project.baseDir,"target/AntTest/some/pkg/MyTest.groovy")
             assert file.exists()
             // end::copy_files[]
         }
@@ -94,24 +89,24 @@ class AntBuilderSpecTest extends GroovyTestCase {
         doInTmpDir {ant, baseDir ->
             baseDir.src {
                 test {
-                    groovy {
+                    some {
                         'test1.groovy'('assert 1+1==2')
                         'test2.groovy'('assert 1+1==2')
-                        util {
-                            'AntTest.groovy'('assert 1+1==2')
+                        pkg {
+                            'MyTest.groovy'('assert 1+1==2')
                         }
                     }
                 }
             }
             // tag::filescanner[]
-            // lets create a scanner of filesets
+            // let's create a scanner of filesets
             def scanner = ant.fileScanner {
                 fileset(dir:"src/test") {
-                    include(name:"**/Ant*.groovy")
+                    include(name:"**/My*.groovy")
                 }
             }
 
-            // now lets iterate over
+            // now let's iterate over
             def found = false
             for (f in scanner) {
                 println("Found file $f")
@@ -126,10 +121,24 @@ class AntBuilderSpecTest extends GroovyTestCase {
 
     void testExecuteJUnit() {
         doInTmpDir {ant, baseDir ->
+            baseDir.some {
+                pkg {
+                    'MyTest.java'('''
+                        package some.pkg;
+                        import junit.framework.TestCase;
+                        public class MyTest extends TestCase {
+                            public void testAddition() {
+                                assertEquals(1+1, 2);
+                            }
+                        }
+                    ''')
+                }
+            }
+            ant.javac(srcdir:'.', includes:'**/*.java', fork:'true')
             // tag::run_junit[]
-            // lets create a scanner of filesets
             ant.junit {
-                test(name:'groovy.util.SomethingThatDoesNotExist')
+                classpath { pathelement(path: '.') }
+                test(name:'some.pkg.MyTest')
             }
             // end::run_junit[]
         }

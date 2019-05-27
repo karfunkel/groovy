@@ -25,8 +25,6 @@ import org.codehaus.groovy.ast.expr.VariableExpression
 
 /**
  * An expression transformer used in the process of replacing the access to variables
- *
- * @author Johannes Link
  */
 @CompileStatic
 class VariableExpressionTransformer implements ExpressionTransformer {
@@ -35,13 +33,14 @@ class VariableExpressionTransformer implements ExpressionTransformer {
     Closure<VariableExpression> replaceWith
 
     @Override
+    @SuppressWarnings('Instanceof')
     Expression transform(Expression expr) {
         if ((expr instanceof VariableExpression) && when(expr)) {
             VariableExpression newExpr = replaceWith(expr)
-            newExpr.setSourcePosition(expr);
-            newExpr.copyNodeMetaData(expr);
+            newExpr.sourcePosition = expr
+            newExpr.copyNodeMetaData(expr)
             return newExpr
         }
-        return expr.transformExpression(this)
+        expr.transformExpression(this)
     }
 }

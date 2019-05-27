@@ -25,11 +25,9 @@ import org.codehaus.groovy.tools.shell.Groovysh
 /**
  * The 'doc' command.
  *
- * @author <a href="mailto:me@masatonagai.com">Masato Nagai</a>
- * @author Andre Steingress
- *
  * @since 2.2.0
  */
+@Deprecated
 class DocCommand extends CommandSupport {
 
     public static final String COMMAND_NAME = ':doc'

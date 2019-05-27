@@ -18,9 +18,8 @@
  */
 package groovy.json
 
-/**
- * @author Guillaume Laforge
- */
+import groovy.test.GroovyTestCase
+
 class JsonBuilderTest extends GroovyTestCase {
 
     void testJsonBuilderConstructor() {

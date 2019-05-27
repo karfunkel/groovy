@@ -24,10 +24,6 @@
 @rem                                                                         ##
 @rem ##########################################################################
 
-@rem
-@rem $Revision$ $Date$
-@rem
-
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" setlocal enabledelayedexpansion
 
@@ -123,9 +119,25 @@ set CP=
 if "x%~1" == "x-cp" set CP=%~2
 if "x%~1" == "x-classpath" set CP=%~2
 if "x%~1" == "x--classpath" set CP=%~2
-if "x" == "x%CP%" goto init
+if "x" == "x%CP%" goto preview_check
 set _SKIP=4
 shift
+shift
+
+:preview_check
+@rem classpath handling
+set PREV=
+set REPLACE_PREVIEW=
+if "x%~1" == "x-pr" goto preview_enable
+if "x%~1" == "x--enable-preview" goto preview_enable
+goto init
+
+:preview_enable
+set JAVA_OPTS=%JAVA_OPTS% --enable-preview -Dgroovy.preview.features=true
+@rem for now, also remember arg to pass through
+set REPLACE_PREVIEW=--enable-preview
+if "%_SKIP%" == "4" set _SKIP=5
+if "%_SKIP%" == "2" set _SKIP=3
 shift
 
 :init
@@ -197,6 +209,7 @@ rem  add the next part to _ARG until the matching quote is found
 goto :win9xME_args_loop
 
 :argIsComplete
+if "x5" == "x%_SKIP%" goto skip_5
 if "x4" == "x%_SKIP%" goto skip_4
 if "x3" == "x%_SKIP%" goto skip_3
 if "x2" == "x%_SKIP%" goto skip_2
@@ -211,6 +224,11 @@ set _ARG=%_ARG:-d=-%
 
 set CMD_LINE_ARGS=%CMD_LINE_ARGS% %_ARG%
 set _ARG=
+goto win9xME_args_loop
+
+:skip_5
+set _ARG=
+set _SKIP=4
 goto win9xME_args_loop
 
 :skip_4
@@ -259,26 +277,25 @@ set CP=%CLASSPATH%;%CP%
 set STARTER_MAIN_CLASS=org.codehaus.groovy.tools.GroovyStarter
 set STARTER_CONF=%GROOVY_HOME%\conf\groovy-starter.conf
 
-set GROOVY_OPTS="-Xmx128m"
-set GROOVY_OPTS=%GROOVY_OPTS% -Dprogram.name="%PROGNAME%"
+set GROOVY_OPTS=-Dprogram.name="%PROGNAME%"
 set GROOVY_OPTS=%GROOVY_OPTS% -Dgroovy.home="%GROOVY_HOME%"
 if not "%TOOLS_JAR%" == "" set GROOVY_OPTS=%GROOVY_OPTS% -Dtools.jar="%TOOLS_JAR%"
 set GROOVY_OPTS=%GROOVY_OPTS% -Dgroovy.starter.conf="%STARTER_CONF%"
 set GROOVY_OPTS=%GROOVY_OPTS% -Dscript.name="%GROOVY_SCRIPT_NAME%"
 
-for /f "tokens=3" %%g in ('%JAVA_EXE% -version 2^>^&1 ^| findstr /i "version"') do (
+for /f "tokens=3" %%g in ('call "%JAVA_EXE%" -version 2^>^&1 ^| findstr /i "version"') do (
   SET JAVA_VERSION=%%g
 )
 for /f "useback tokens=*" %%a in ('%JAVA_VERSION%') do set JAVA_VERSION=%%~a
 set JAVA_VERSION=%JAVA_VERSION:~0,5%
 set ADD_MODULES_OPT=--add-modules
-if "%JAVA_VERSION%" gtr "1.8.0" echo.%JAVA_OPTS% | findstr /C:"%ADD_MODULES_OPT%" >nul 2>&1 || set JAVA_OPTS=%JAVA_OPTS% %ADD_MODULES_OPT% ALL-SYSTEM
+if "%JAVA_VERSION%" gtr "1.8.0" set JAVA_OPTS=%JAVA_OPTS% -Dgroovy.jaxb=jaxb
 if "%JAVA_VERSION%" gtr "1.8.0" if "%GROOVY_TURN_OFF_JAVA_WARNINGS%" == "true"                 set JAVA_OPTS=%JAVA_OPTS% --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.annotation=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang.module=ALL-UNNAMED --add-opens=java.base/java.lang.ref=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED --add-opens=java.base/java.math=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.net.spi=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.nio.channels=ALL-UNNAMED --add-opens=java.base/java.nio.channels.spi=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.nio.charset.spi=ALL-UNNAMED --add-opens=java.base/java.nio.file=ALL-UNNAMED --add-opens=java.base/java.nio.file.attribute=ALL-UNNAMED --add-opens=java.base/java.nio.file.spi=ALL-UNNAMED --add-opens=java.base/java.security=ALL-UNNAMED --add-opens=java.base/java.security.acl=ALL-UNNAMED --add-opens=java.base/java.security.cert=ALL-UNNAMED --add-opens=java.base/java.security.interfaces=ALL-UNNAMED --add-opens=java.base/java.security.spec=ALL-UNNAMED --add-opens=java.base/java.text=ALL-UNNAMED --add-opens=java.base/java.text.spi=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --add-opens=java.base/java.time.chrono=ALL-UNNAMED --add-opens=java.base/java.time.format=ALL-UNNAMED --add-opens=java.base/java.time.temporal=ALL-UNNAMED --add-opens=java.base/java.time.zone=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED --add-opens=java.base/java.util.function=ALL-UNNAMED --add-opens=java.base/java.util.jar=ALL-UNNAMED --add-opens=java.base/java.util.regex=ALL-UNNAMED --add-opens=java.base/java.util.spi=ALL-UNNAMED --add-opens=java.base/java.util.stream=ALL-UNNAMED --add-opens=java.base/java.util.zip=ALL-UNNAMED --add-opens=java.datatransfer/java.awt.datatransfer=ALL-UNNAMED --add-opens=java.desktop/java.applet=ALL-UNNAMED --add-opens=java.desktop/java.awt=ALL-UNNAMED --add-opens=java.desktop/java.awt.color=ALL-UNNAMED --add-opens=java.desktop/java.awt.desktop=ALL-UNNAMED --add-opens=java.desktop/java.awt.dnd=ALL-UNNAMED --add-opens=java.desktop/java.awt.dnd.peer=ALL-UNNAMED --add-opens=java.desktop/java.awt.event=ALL-UNNAMED --add-opens=java.desktop/java.awt.font=ALL-UNNAMED --add-opens=java.desktop/java.awt.geom=ALL-UNNAMED --add-opens=java.desktop/java.awt.im=ALL-UNNAMED --add-opens=java.desktop/java.awt.im.spi=ALL-UNNAMED --add-opens=java.desktop/java.awt.image=ALL-UNNAMED --add-opens=java.desktop/java.awt.image.renderable=ALL-UNNAMED --add-opens=java.desktop/java.awt.peer=ALL-UNNAMED --add-opens=java.desktop/java.awt.print=ALL-UNNAMED --add-opens=java.desktop/java.beans=ALL-UNNAMED --add-opens=java.desktop/java.beans.beancontext=ALL-UNNAMED --add-opens=java.instrument/java.lang.instrument=ALL-UNNAMED --add-opens=java.logging/java.util.logging=ALL-UNNAMED --add-opens=java.management/java.lang.management=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.rmi/java.rmi=ALL-UNNAMED --add-opens=java.rmi/java.rmi.activation=ALL-UNNAMED --add-opens=java.rmi/java.rmi.dgc=ALL-UNNAMED --add-opens=java.rmi/java.rmi.registry=ALL-UNNAMED --add-opens=java.rmi/java.rmi.server=ALL-UNNAMED --add-opens=java.sql/java.sql=ALL-UNNAMED  --add-opens=java.desktop/javax.swing=ALL-UNNAMED --add-opens=java.desktop/javax.swing.border=ALL-UNNAMED --add-opens=java.desktop/javax.swing.text=ALL-UNNAMED --add-opens=java.desktop/javax.swing.text.html=ALL-UNNAMED --add-opens=java.desktop/sun.awt.windows=ALL-UNNAMED --add-opens=java.desktop/sun.awt=ALL-UNNAMED --add-opens=java.desktop/sun.java2d=ALL-UNNAMED --add-opens=java.desktop/sun.font=ALL-UNNAMED
 
 if exist "%USERPROFILE%/.groovy/postinit.bat" call "%USERPROFILE%/.groovy/postinit.bat"
 
 @rem Execute Groovy
-"%JAVA_EXE%" %GROOVY_OPTS% %JAVA_OPTS% -classpath "%STARTER_CLASSPATH%" %STARTER_MAIN_CLASS% --main %CLASS% --conf "%STARTER_CONF%" --classpath "%CP%" %CMD_LINE_ARGS%
+"%JAVA_EXE%" %GROOVY_OPTS% %JAVA_OPTS% -classpath "%STARTER_CLASSPATH%" %STARTER_MAIN_CLASS% --main %CLASS% --conf "%STARTER_CONF%" --classpath "%CP%" %REPLACE_PREVIEW% %CMD_LINE_ARGS%
 
 :end
 @rem End local scope for the variables with windows NT shell

@@ -237,13 +237,13 @@ assert user.@name == 'Bob'                   // <1>
 '''
     }
 
-    void testMethodReference() {
-        // tag::method_reference[]
+    void testMethodPointer() {
+        // tag::method_pointer[]
         def str = 'example of method reference'            // <1>
         def fun = str.&toUpperCase                         // <2>
         def upper = fun()                                  // <3>
         assert upper == str.toUpperCase()                  // <4>
-        // end::method_reference[]
+        // end::method_pointer[]
         assert fun instanceof Closure
 
         assertScript '''
@@ -251,7 +251,7 @@ assert user.@name == 'Bob'                   // <1>
                 String name
                 int age
             }
-            // tag::method_reference_strategy[]
+            // tag::method_pointer_strategy[]
             def transform(List elements, Closure action) {                    // <1>
                 def result = []
                 elements.each {
@@ -268,17 +268,66 @@ assert user.@name == 'Bob'                   // <1>
                 new Person(name: 'Julia', age: 35)]                           // <4>
             assert transform(list, action) == ['Bob is 42', 'Julia is 35']    // <5>
 
-            // end::method_reference_strategy[]
+            // end::method_pointer_strategy[]
         '''
 
         assertScript '''
-            // tag::method_reference_dispatch[]
+            // tag::method_pointer_dispatch[]
             def doSomething(String str) { str.toUpperCase() }    // <1>
             def doSomething(Integer x) { 2*x }                   // <2>
             def reference = this.&doSomething                    // <3>
             assert reference('foo') == 'FOO'                     // <4>
             assert reference(123)   == 246                       // <5>
-            // end::method_reference_dispatch[]
+            // end::method_pointer_dispatch[]
+        '''
+
+        assertScript '''
+            // tag::method_pointer_new[]
+            def foo  = BigInteger.&new
+            def fortyTwo = foo('42')
+            assert fortyTwo == 42G
+            // end::method_pointer_new[]
+        '''
+
+        assertScript '''
+            // tag::method_pointer_class_instance[]
+            def instanceMethod = String.&toUpperCase
+            assert instanceMethod('foo') == 'FOO'
+            // end::method_pointer_class_instance[]
+        '''
+    }
+
+    void testMethodReference() {
+        assertScript '''
+            // tag::method_refs[]
+            import groovy.transform.CompileStatic
+            import static java.util.stream.Collectors.toList
+
+            @CompileStatic
+            void methodRefs() {
+                assert 6G == [1G, 2G, 3G].stream().reduce(0G, BigInteger::add)                           // <1>
+
+                assert [4G, 5G, 6G] == [1G, 2G, 3G].stream().map(3G::add).collect(toList())              // <2>
+
+                assert [1G, 2G, 3G] == [1L, 2L, 3L].stream().map(BigInteger::valueOf).collect(toList())  // <3>
+
+                assert [1G, 2G, 3G] == [1L, 2L, 3L].stream().map(3G::valueOf).collect(toList())          // <4>
+            }
+
+            methodRefs()
+            // end::method_refs[]
+            // tag::constructor_refs[]
+            @CompileStatic
+            void constructorRefs() {
+                assert [1, 2, 3] == ['1', '2', '3'].stream().map(Integer::new).collect(toList())  // <1>
+
+                def result = [1, 2, 3].stream().toArray(Integer[]::new)                           // <2>
+                assert result instanceof Integer[]
+                assert result.toString() == '[1, 2, 3]'
+            }
+
+            constructorRefs()
+            // end::constructor_refs[]
         '''
     }
 
@@ -355,6 +404,55 @@ def composite = new CompositeObject()
 assert composite*.id == [1,2]
 assert composite*.name == ['Foo','Bar']
 // end::spreaddot_iterable[]
+'''
+        assertScript '''
+import groovy.transform.Canonical
+
+// tag::spreaddot_multilevel[]
+class Make {
+    String name
+    List<Model> models
+}
+
+@Canonical
+class Model {
+    String name
+}
+
+def cars = [
+    new Make(name: 'Peugeot',
+             models: [new Model('408'), new Model('508')]),
+    new Make(name: 'Renault',
+             models: [new Model('Clio'), new Model('Captur')])
+]
+
+def makes = cars*.name
+assert makes == ['Peugeot', 'Renault']
+
+def models = cars*.models*.name
+assert models == [['408', '508'], ['Clio', 'Captur']]
+assert models.sum() == ['408', '508', 'Clio', 'Captur'] // flatten one level
+assert models.flatten() == ['408', '508', 'Clio', 'Captur'] // flatten all levels (one in this case)
+// end::spreaddot_multilevel[]
+'''
+        assertScript '''
+// tag::spreaddot_alternative[]
+class Car {
+    String make
+    String model
+}
+def cars = [
+   [
+       new Car(make: 'Peugeot', model: '408'),
+       new Car(make: 'Peugeot', model: '508')
+   ], [
+       new Car(make: 'Renault', model: 'Clio'),
+       new Car(make: 'Renault', model: 'Captur')
+   ]
+]
+def models = cars.collectNested{ it.model }
+assert models == [['408', '508'], ['Clio', 'Captur']]
+// end::spreaddot_alternative[]
 '''
     }
 

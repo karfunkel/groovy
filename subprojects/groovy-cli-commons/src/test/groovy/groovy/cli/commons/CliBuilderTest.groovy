@@ -20,6 +20,7 @@ package groovy.cli.commons
 
 import groovy.cli.Option
 import groovy.cli.Unparsed
+import groovy.test.GroovyTestCase
 import groovy.transform.ToString
 import groovy.transform.TypeChecked
 import org.apache.commons.cli.BasicParser
@@ -622,7 +623,6 @@ usage: groovy
         @Unparsed Integer[] nums()
     }
 
-    // this feature is incubating
     void testTypedUnparsedFromSpec() {
         def argz = '12 34 56'.split()
         def cli = new CliBuilder()
@@ -634,7 +634,6 @@ usage: groovy
         @Unparsed Integer[] nums
     }
 
-    // this feature is incubating
     void testTypedUnparsedFromInstance() {
         def argz = '12 34 56'.split()
         def cli = new CliBuilder()
@@ -659,6 +658,20 @@ usage: groovy
             assert opt == 'h'
             assert longOpt == 'help'
         }
+    }
+
+    interface StringIntArray {
+        @Option(shortName='u') String user()
+        @Unparsed Integer[] nums()
+    }
+
+    // GROOVY-8975
+    void testTypedCaseWithRemainingArray() {
+        def cli = new CliBuilder()
+        def argz = '--user abc 12 34'.split()
+        StringIntArray hello = cli.parseFromSpec(StringIntArray, argz)
+        assert hello.user() == 'abc'
+        assert hello.nums() == [12, 34]
     }
 
     void testParseFromInstanceFlagEdgeCases() {

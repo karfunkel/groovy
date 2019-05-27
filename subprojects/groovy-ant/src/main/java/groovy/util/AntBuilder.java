@@ -35,6 +35,7 @@ import org.apache.tools.ant.dispatch.DispatchUtils;
 import org.apache.tools.ant.helper.AntXMLContext;
 import org.apache.tools.ant.helper.ProjectHelper2;
 import org.codehaus.groovy.ant.FileScanner;
+import org.codehaus.groovy.reflection.ReflectionUtils;
 import org.codehaus.groovy.runtime.DefaultGroovyMethodsSupport;
 import org.xml.sax.Attributes;
 import org.xml.sax.Locator;
@@ -61,12 +62,8 @@ import java.util.logging.Logger;
  * you will need to add one or more additional jars from the ant distribution to
  * your classpath - see the <a href="http://ant.apache.org/manual/install.html#librarydependencies">library
  * dependencies</a> for more details.
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Dierk Koenig (dk)
- * @author Marc Guillemot
- * @author Paul King
  */
+@Deprecated
 public class AntBuilder extends BuilderSupport {
 
     private final Logger log = Logger.getLogger(getClass().getName());
@@ -325,7 +322,7 @@ public class AntBuilder extends BuilderSupport {
         try {
             // Have to call fireTestStared/fireTestFinished via reflection as they unfortunately have protected access in Project
             final Method fireTaskStarted = Project.class.getDeclaredMethod("fireTaskStarted", Task.class);
-            fireTaskStarted.setAccessible(true);
+            ReflectionUtils.trySetAccessible(fireTaskStarted);
             fireTaskStarted.invoke(project, task);
 
             Object realThing;
@@ -359,7 +356,7 @@ public class AntBuilder extends BuilderSupport {
         finally {
             try {
                 final Method fireTaskFinished = Project.class.getDeclaredMethod("fireTaskFinished", Task.class, Throwable.class);
-                fireTaskFinished.setAccessible(true);
+                ReflectionUtils.trySetAccessible(fireTaskFinished);
                 fireTaskFinished.invoke(project, task, reason);
             }
             catch (Exception e) {
@@ -497,6 +494,7 @@ public class AntBuilder extends BuilderSupport {
  * Would be nice to retrieve location information (from AST?).
  * In a first time, without info
  */
+@Deprecated
 class AntBuilderLocator implements Locator {
     public int getColumnNumber() {
         return 0;

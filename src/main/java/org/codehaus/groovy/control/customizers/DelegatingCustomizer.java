@@ -18,24 +18,32 @@
  */
 package org.codehaus.groovy.control.customizers;
 
+import groovy.transform.CompilationUnitAware;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.classgen.GeneratorContext;
 import org.codehaus.groovy.control.CompilationFailedException;
+import org.codehaus.groovy.control.CompilationUnit;
 import org.codehaus.groovy.control.SourceUnit;
 
 /**
  * Base class for compilation customizers which delegate to another customizer. The phase this
  * customizer runs at is retrieved from the phase of the delegate.
  *
- * @author Cedric Champeau
  * @since 2.1.0
  */
-public abstract class DelegatingCustomizer extends CompilationCustomizer {
+public abstract class DelegatingCustomizer extends CompilationCustomizer implements CompilationUnitAware {
     protected final CompilationCustomizer delegate;
 
     public DelegatingCustomizer(CompilationCustomizer delegate) {
         super(delegate.getPhase());
         this.delegate = delegate;
+    }
+
+    @Override
+    public void setCompilationUnit(final CompilationUnit compilationUnit) {
+        if (delegate instanceof CompilationUnitAware) {
+            ((CompilationUnitAware) delegate).setCompilationUnit(compilationUnit);
+        }
     }
 
     @Override

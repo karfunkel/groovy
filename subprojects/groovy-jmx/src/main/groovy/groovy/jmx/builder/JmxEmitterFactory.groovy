@@ -18,6 +18,8 @@
  */
 package groovy.jmx.builder
 
+import groovy.jmx.GroovyMBean
+
 import javax.management.MBeanServer
 import javax.management.NotificationFilterSupport
 import javax.management.ObjectName
@@ -34,8 +36,6 @@ import javax.management.ObjectName
  * ...
  * jmx.emitter.send(object)
  * </pre>
- *
- * @author Vladimir Vivien
  */
 class JmxEmitterFactory extends AbstractFactory {
     def newInstance(FactoryBuilderSupport builder, Object nodeName, Object nodeParam, Map nodeAttribs) {
@@ -71,7 +71,7 @@ class JmxEmitterFactory extends AbstractFactory {
             throw new JmxBuilderException("Listeners must be provided as a list [listener1,...,listenerN]")
         }
 
-        listeners.each {l ->
+        listeners.each { l ->
             def listener = l
             try {
                 if (listener instanceof String) {
@@ -97,15 +97,15 @@ class JmxEmitterFactory extends AbstractFactory {
         if (!name) return new ObjectName("${fsb.getDefaultJmxNameDomain()}:type=Emitter,name=Emitter@${emitter.hashCode()}")
     }
 
-    public boolean onHandleNodeAttributes(FactoryBuilderSupport builder, Object node, Map nodeAttribs) {
-        return false;
+    boolean onHandleNodeAttributes(FactoryBuilderSupport builder, Object node, Map nodeAttribs) {
+        return false
     }
 
-    public boolean isLeaf() {
-        return true;
+    boolean isLeaf() {
+        return true
     }
 
-    public void onNodeCompleted(FactoryBuilderSupport builder, Object parentNode, Object thisNode) {
+    void onNodeCompleted(FactoryBuilderSupport builder, Object parentNode, Object thisNode) {
         if (parentNode != null) {
             parentNode.add(thisNode)
         }

@@ -24,9 +24,8 @@ import groovy.lang.Closure;
  * Represents a value model using a closure to extract
  * the value from some source model and an optional write closure
  * for updating the value.
- * 
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public class ClosureModel implements ValueModel, NestedValueModel {
 
     private final ValueModel sourceModel;

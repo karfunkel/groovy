@@ -78,9 +78,6 @@ import java.util.regex.Pattern;
  * <pre>
  * reflection = false(default) | true
  * </pre>
- *
- * @author Christian Stein
- * @author Roshan Dawrani (roshandawrani)
  */
 public abstract class AbstractHttpServlet extends HttpServlet implements ResourceConnector {
 
@@ -178,8 +175,7 @@ public abstract class AbstractHttpServlet extends HttpServlet implements Resourc
         try {
             URL res = servletContext.getResource("/");
             if (res != null) { uri = res.toURI(); }
-        } catch (MalformedURLException ignore) {
-        } catch (URISyntaxException ignore) {
+        } catch (MalformedURLException | URISyntaxException ignore) {
         }
 
         if (uri != null) {

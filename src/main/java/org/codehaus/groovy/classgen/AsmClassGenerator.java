@@ -61,6 +61,7 @@ import org.codehaus.groovy.ast.expr.MapEntryExpression;
 import org.codehaus.groovy.ast.expr.MapExpression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.MethodPointerExpression;
+import org.codehaus.groovy.ast.expr.MethodReferenceExpression;
 import org.codehaus.groovy.ast.expr.NotExpression;
 import org.codehaus.groovy.ast.expr.PostfixExpression;
 import org.codehaus.groovy.ast.expr.PrefixExpression;
@@ -102,7 +103,6 @@ import org.codehaus.groovy.classgen.asm.OptimizingStatementWriter;
 import org.codehaus.groovy.classgen.asm.WriterController;
 import org.codehaus.groovy.classgen.asm.WriterControllerFactory;
 import org.codehaus.groovy.control.SourceUnit;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.codehaus.groovy.runtime.ScriptBytecodeAdapter;
 import org.codehaus.groovy.syntax.RuntimeParserException;
 import org.objectweb.asm.AnnotationVisitor;
@@ -123,6 +123,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.groovy.util.BeanUtils.capitalize;
 
 /**
  * Generates Java class versions of Groovy classes using ASM.
@@ -152,8 +154,7 @@ public class AsmClassGenerator extends ClassGenerator {
      // spread expressions
     static final MethodCaller spreadMap = MethodCaller.newStatic(ScriptBytecodeAdapter.class, "spreadMap");
     static final MethodCaller despreadList = MethodCaller.newStatic(ScriptBytecodeAdapter.class, "despreadList");
-    // Closure
-    static final MethodCaller getMethodPointer = MethodCaller.newStatic(ScriptBytecodeAdapter.class, "getMethodPointer");
+
 
     // type conversions
     static final MethodCaller createListMethod = MethodCaller.newStatic(ScriptBytecodeAdapter.class, "createList");
@@ -220,7 +221,7 @@ public class AsmClassGenerator extends ClassGenerator {
             Object min = classNode.getNodeMetaData(MINIMUM_BYTECODE_VERSION);
             if (min instanceof Integer) {
                 int minVersion = (int) min;
-                if (bytecodeVersion < minVersion) {
+                if ((bytecodeVersion ^ Opcodes.V_PREVIEW) < minVersion) {
                     bytecodeVersion = minVersion;
                 }
             }
@@ -775,13 +776,14 @@ public class AsmClassGenerator extends ClassGenerator {
         controller.getOperandStack().replace(ClassHelper.OBJECT_TYPE);
     }
 
+    @Override
     public void visitMethodPointerExpression(MethodPointerExpression expression) {
-        Expression subExpression = expression.getExpression();
-        subExpression.visit(this);
-        controller.getOperandStack().box();
-        controller.getOperandStack().pushDynamicName(expression.getMethodName());
-        getMethodPointer.call(controller.getMethodVisitor());
-        controller.getOperandStack().replace(ClassHelper.CLOSURE_TYPE,2);
+        controller.getMethodPointerExpressionWriter().writeMethodPointerExpression(expression);
+    }
+
+    @Override
+    public void visitMethodReferenceExpression(MethodReferenceExpression expression) {
+        controller.getMethodReferenceExpressionWriter().writeMethodReferenceExpression(expression);
     }
 
     public void visitUnaryMinusExpression(UnaryMinusExpression expression) {
@@ -995,6 +997,7 @@ public class AsmClassGenerator extends ClassGenerator {
                                             new ClassExpression(outer),
                                             expression.getProperty()
                                     );
+                                    pexp.getObjectExpression().setSourcePosition(objectExpression);
                                     pexp.visit(controller.getAcg());
                                     return;
                                 }
@@ -1031,7 +1034,7 @@ public class AsmClassGenerator extends ClassGenerator {
                     } else {
                         prefix = "get";
                     }
-                    String propName = prefix + MetaClassHelper.capitalize(name);
+                    String propName = prefix + capitalize(name);
                     visitMethodCallExpression(new MethodCallExpression(objectExpression, propName, MethodCallExpression.NO_ARGUMENTS));
                     return;
                 }
@@ -1067,6 +1070,10 @@ public class AsmClassGenerator extends ClassGenerator {
                 iterType = iterType.getOuterClass();
                 if (thisField == null) {
                     // closure within inner class
+                    while (iterType.isDerivedFrom(ClassHelper.CLOSURE_TYPE)) {
+                        // GROOVY-8881: cater for closures within closures - getThisObject is already outer class of all closures
+                        iterType = iterType.getOuterClass();
+                    }
                     mv.visitMethodInsn(INVOKEVIRTUAL, BytecodeHelper.getClassInternalName(ClassHelper.CLOSURE_TYPE), "getThisObject", "()Ljava/lang/Object;", false);
                     mv.visitTypeInsn(CHECKCAST, BytecodeHelper.getClassInternalName(iterType));
                 } else {
@@ -1140,13 +1147,13 @@ public class AsmClassGenerator extends ClassGenerator {
     }
 
     private MethodNode findSetterOfSuperClass(ClassNode classNode, FieldNode fieldNode) {
-        String setterMethodName = "set" + MetaClassHelper.capitalize(fieldNode.getName());
+        String setterMethodName = "set" + capitalize(fieldNode.getName());
 
         return classNode.getSuperClass().getSetterMethod(setterMethodName);
     }
 
     private MethodNode findGetterOfSuperClass(ClassNode classNode, FieldNode fieldNode) {
-        String getterMethodName = "get" + MetaClassHelper.capitalize(fieldNode.getName());
+        String getterMethodName = "get" + capitalize(fieldNode.getName());
 
         return classNode.getSuperClass().getGetterMethod(getterMethodName);
     }
@@ -1438,7 +1445,7 @@ public class AsmClassGenerator extends ClassGenerator {
         ClassNode icl =  controller.getInterfaceClassLoadingClass();
 
         if (referencedClasses.isEmpty()) {
-            Iterator<InnerClassNode> it = controller.getClassNode().getInnerClasses();
+            Iterator<InnerClassNode> it = icl.getOuterClass().getInnerClasses();
             while(it.hasNext()) {
                 InnerClassNode inner = it.next();
                 if (inner==icl) {
@@ -1625,7 +1632,7 @@ public class AsmClassGenerator extends ClassGenerator {
             if (!(expr instanceof SpreadExpression)) {
                 normalArguments.add(expr);
             } else {
-                spreadIndexes.add(new ConstantExpression(Integer.valueOf(i - spreadExpressions.size()),true));
+                spreadIndexes.add(new ConstantExpression(i - spreadExpressions.size(),true));
                 spreadExpressions.add(((SpreadExpression) expr).getExpression());
             }
         }

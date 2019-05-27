@@ -65,7 +65,10 @@ import java.util.Map;
  * assert rootNode.two.text() == 'Some text!'
  * rootNode.children().each { assert it.name() in ['one','two'] }
  * </pre>
+ *
+ * @deprecated use {@link groovy.xml.XmlParser}
  */
+@Deprecated
 public class XmlParser implements ContentHandler {
 
     private StringBuilder bodyText = new StringBuilder();
@@ -131,9 +134,7 @@ public class XmlParser implements ContentHandler {
         try {
             factory.setFeature(feature, value);
         }
-        catch (ParserConfigurationException ignored) { }
-        catch (SAXNotRecognizedException ignored) { }
-        catch (SAXNotSupportedException ignored) { }
+        catch (ParserConfigurationException | SAXNotSupportedException | SAXNotRecognizedException ignored) { }
     }
 
     /**

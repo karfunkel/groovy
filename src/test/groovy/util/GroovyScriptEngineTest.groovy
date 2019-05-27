@@ -30,9 +30,8 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.junit.runners.JUnit4
 
-/**
- * @author Andre Steingress
- */
+import static groovy.test.GroovyAssert.isAtLeastJdk
+
 @RunWith(JUnit4)
 class GroovyScriptEngineTest extends GroovyTestCase {
 
@@ -41,9 +40,10 @@ class GroovyScriptEngineTest extends GroovyTestCase {
 
     @Test
     void createASTDumpWhenScriptIsLoadedByName() {
+        // current xstream causes illegal access errors on JDK9+ - skip on those JDK versions, get coverage on older versions
+        if (isAtLeastJdk('9.0')) return
 
         def scriptFile = temporaryFolder.newFile('Script1.groovy')
-
         scriptFile << "assert 1 + 1 == 2" // the script just has to have _some_ content
 
         try {

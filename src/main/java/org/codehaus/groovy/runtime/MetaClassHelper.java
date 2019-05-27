@@ -24,6 +24,7 @@ import groovy.lang.GroovyObject;
 import groovy.lang.GroovyRuntimeException;
 import groovy.lang.MetaClass;
 import groovy.lang.MetaMethod;
+import org.apache.groovy.util.BeanUtils;
 import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.ParameterTypes;
 import org.codehaus.groovy.reflection.ReflectionCache;
@@ -42,10 +43,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * @author John Wilson
- * @author Jochen Theodorou
- */
 public class MetaClassHelper {
 
     public static final Object[] EMPTY_ARRAY = {};
@@ -476,23 +473,11 @@ public class MetaClassHelper {
     }
 
     /**
-     * This is the complement to the java.beans.Introspector.decapitalize(String) method.
-     * We handle names that begin with an initial lowerCase followed by upperCase specially
-     * (which is to make no change).
-     * See GROOVY-3211.
-     *
-     * @param property the property name to capitalize
-     * @return the name capitalized, except when we don't
+     * @deprecated Use BeanUtils.capitalize instead
      */
+    @Deprecated
     public static String capitalize(final String property) {
-        final String rest = property.substring(1);
-
-        // Funky rule so that names like 'pNAME' will still work.
-        if (Character.isLowerCase(property.charAt(0)) && (rest.length() > 0) && Character.isUpperCase(rest.charAt(0))) {
-            return property;
-        }
-
-        return property.substring(0, 1).toUpperCase() + rest;
+        return BeanUtils.capitalize(property);
     }
 
     /**
@@ -1029,6 +1014,6 @@ public class MetaClassHelper {
         if (Character.isDigit(prop.charAt(0))) {
             return prop;
         }
-        return java.beans.Introspector.decapitalize(prop);
+        return BeanUtils.decapitalize(prop);
     }
 }

@@ -45,8 +45,6 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.varX
  *
  * There's probably place for optimizing the amount of variable copying being done, e.g.
  * parameters that are only handed through must not be copied at all.
- *
- * @author Johannes Link
  */
 @CompileStatic
 class ReturnStatementToIterationConverter {
@@ -88,7 +86,7 @@ class ReturnStatementToIterationConverter {
         }
         result.addStatement(recurStatement)
 
-        return result
+        result
     }
 
     private ExpressionStatement createAssignmentToIterationVariable(Expression expression, int index, Map<Integer, Map> positionMapping) {
@@ -98,16 +96,17 @@ class ReturnStatementToIterationConverter {
         argAssignment
     }
 
-    private ExpressionStatement createTempDeclaration(int index,  Map<Integer, Map> positionMapping, Map<String, Map> tempMapping, Map tempDeclarations) {
+    private ExpressionStatement createTempDeclaration(int index, Map<Integer, Map> positionMapping, Map<String, Map> tempMapping, Map tempDeclarations) {
         String argName = positionMapping[index]['name']
         String tempName = "_${argName}_"
         ClassNode argAndTempType = positionMapping[index]['type'] as ClassNode
         ExpressionStatement tempDeclaration = AstHelper.createVariableAlias(tempName, argAndTempType, argName)
         tempMapping[argName] = [name: tempName, type: argAndTempType]
         tempDeclarations[tempName] = tempDeclaration
-        return tempDeclaration
+        tempDeclaration
     }
 
+    @SuppressWarnings('Instanceof')
     private List<Expression> getArguments(Expression recursiveCall) {
         if (recursiveCall instanceof MethodCallExpression)
             return ((TupleExpression) ((MethodCallExpression) recursiveCall).arguments).expressions
@@ -120,13 +119,13 @@ class ReturnStatementToIterationConverter {
     }
 
     private Set<String> replaceAllArgUsages(List<ExpressionStatement> iterationVariablesAssignmentNodes, Map<String, Map> tempMapping) {
-        Set<String> unusedTempNames = tempMapping.values().collect {Map nameAndType -> (String) nameAndType['name']} as Set<String>
+        Set<String> unusedTempNames = tempMapping.values().collect { Map nameAndType -> (String) nameAndType['name'] } as Set<String>
         VariableReplacedListener tracker = new UsedVariableTracker()
         for (ExpressionStatement statement : iterationVariablesAssignmentNodes) {
             replaceArgUsageByTempUsage((BinaryExpression) statement.expression, tempMapping, tracker)
         }
         unusedTempNames = unusedTempNames - tracker.usedVariableNames
-        return unusedTempNames
+        unusedTempNames
     }
 
     private void replaceArgUsageByTempUsage(BinaryExpression binary, Map tempMapping, UsedVariableTracker tracker) {

@@ -27,27 +27,27 @@ import org.codehaus.groovy.ast.expr.StaticMethodCallExpression
 import org.codehaus.groovy.ast.expr.VariableExpression
 
 /**
- *
  * Test if a method call is recursive if called within a given method node.
  * Handles static calls as well.
  * 
  * Currently known simplifications:
- * - Does not check for method overloading or overridden methods.
- * - Does not check for matching return types; even void and any object type are considered to be compatible.
- * - Argument type matching could be more specific in case of static compilation.
- * - Method names via a GString are never considered to be recursive
- * 
- * @author Johannes Link
+ * <ul>
+ * <li>Does not check for method overloading or overridden methods</li>
+ * <li>Does not check for matching return types; even void and any object type are considered to be compatible</li>
+ * <li>Argument type matching could be more specific in case of static compilation</li>
+ * <li>Method names via a GString are never considered to be recursive</li>
+ * </ul>
  */
 class RecursivenessTester {
-	public boolean isRecursive(params) {
+	boolean isRecursive(params) {
 		assert params.method.class == MethodNode
 		assert params.call.class == MethodCallExpression || StaticMethodCallExpression
 
 		isRecursive(params.method, params.call)
 	}
 
-	public boolean isRecursive(MethodNode method, MethodCallExpression call) {
+    @SuppressWarnings('Instanceof')
+	boolean isRecursive(MethodNode method, MethodCallExpression call) {
 		if (!isCallToThis(call))
 			return false
         // Could be a GStringExpression
@@ -58,7 +58,7 @@ class RecursivenessTester {
 		methodParamsMatchCallArgs(method, call)
 	}
 
-    public boolean isRecursive(MethodNode method, StaticMethodCallExpression call) {
+    boolean isRecursive(MethodNode method, StaticMethodCallExpression call) {
         if (!method.isStatic())
             return false
         if (method.declaringClass != call.ownerType)
@@ -68,21 +68,22 @@ class RecursivenessTester {
         methodParamsMatchCallArgs(method, call)
     }
 
+    @SuppressWarnings('Instanceof')
 	private boolean isCallToThis(MethodCallExpression call) {
 		if (call.objectExpression == null)
 			return call.isImplicitThis()
         if (! (call.objectExpression instanceof VariableExpression)) {
             return false
         }
-		return call.objectExpression.isThisExpression()
+		call.objectExpression.isThisExpression()
 	}
 	
 	private boolean methodParamsMatchCallArgs(method, call) {
         if (method.parameters.size() != call.arguments.expressions.size())
             return false
         def classNodePairs = [method.parameters*.type, call.arguments*.type].transpose()
-        return classNodePairs.every { ClassNode paramType, ClassNode argType  ->
-            return areTypesCallCompatible(argType, paramType)
+        classNodePairs.every { ClassNode paramType, ClassNode argType  ->
+            areTypesCallCompatible(argType, paramType)
         }
 	}
 
@@ -94,7 +95,7 @@ class RecursivenessTester {
     private areTypesCallCompatible(ClassNode argType, ClassNode paramType) {
         ClassNode boxedArg = ClassHelper.getWrapper(argType)
         ClassNode boxedParam = ClassHelper.getWrapper(paramType)
-        return boxedArg.isDerivedFrom(boxedParam) || boxedParam.isDerivedFrom(boxedArg)
+        boxedArg.isDerivedFrom(boxedParam) || boxedParam.isDerivedFrom(boxedArg)
     }
 
 }

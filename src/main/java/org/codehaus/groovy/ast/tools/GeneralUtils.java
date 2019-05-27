@@ -43,6 +43,8 @@ import org.codehaus.groovy.ast.expr.DeclarationExpression;
 import org.codehaus.groovy.ast.expr.Expression;
 import org.codehaus.groovy.ast.expr.FieldExpression;
 import org.codehaus.groovy.ast.expr.ListExpression;
+import org.codehaus.groovy.ast.expr.MapEntryExpression;
+import org.codehaus.groovy.ast.expr.MapExpression;
 import org.codehaus.groovy.ast.expr.MethodCallExpression;
 import org.codehaus.groovy.ast.expr.NotExpression;
 import org.codehaus.groovy.ast.expr.PropertyExpression;
@@ -60,7 +62,6 @@ import org.codehaus.groovy.ast.stmt.ThrowStatement;
 import org.codehaus.groovy.classgen.Verifier;
 import org.codehaus.groovy.control.io.ReaderSource;
 import org.codehaus.groovy.runtime.GeneratedClosure;
-import org.codehaus.groovy.runtime.MetaClassHelper;
 import org.codehaus.groovy.syntax.Token;
 import org.codehaus.groovy.syntax.Types;
 import org.codehaus.groovy.transform.AbstractASTTransformation;
@@ -73,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.apache.groovy.util.BeanUtils.capitalize;
 import static org.codehaus.groovy.syntax.Types.COMPARE_NOT_IDENTICAL;
 
 /**
@@ -606,6 +608,10 @@ public class GeneralUtils {
         return new BooleanExpression(new BinaryExpression(objectExpression, INSTANCEOF, classX(cNode)));
     }
 
+    public static BooleanExpression isNullX(Expression expr) {
+        return new BooleanExpression(new BinaryExpression(expr, EQ, new ConstantExpression(null)));
+    }
+
     public static BooleanExpression isOneX(Expression expr) {
         return new BooleanExpression(new BinaryExpression(expr, EQ, new ConstantExpression(1)));
     }
@@ -620,6 +626,10 @@ public class GeneralUtils {
 
     public static BooleanExpression isZeroX(Expression expr) {
         return new BooleanExpression(new BinaryExpression(expr, EQ, new ConstantExpression(0)));
+    }
+
+    public static ListExpression listX(List<Expression> args) {
+        return new ListExpression(args);
     }
 
     public static ListExpression list2args(List args) {
@@ -638,8 +648,28 @@ public class GeneralUtils {
         return result;
     }
 
+    public static VariableExpression localVarX(String name) {
+        VariableExpression result = new VariableExpression(name);
+        result.setAccessedVariable(result);
+        return result;
+    }
+
+    public static VariableExpression localVarX(String name, ClassNode type) {
+        VariableExpression result = new VariableExpression(name, type);
+        result.setAccessedVariable(result);
+        return result;
+    }
+
     public static BinaryExpression ltX(Expression lhv, Expression rhv) {
         return new BinaryExpression(lhv, LT, rhv);
+    }
+
+    public static MapExpression mapX(List<MapEntryExpression> expressions) {
+        return new MapExpression(expressions);
+    }
+
+    public static MapEntryExpression entryX(Expression key, Expression value) {
+        return new MapEntryExpression(key, value);
     }
 
     public static BinaryExpression notIdenticalX(Expression lhv, Expression rhv) {
@@ -766,10 +796,10 @@ public class GeneralUtils {
     }
 
     private static String getterName(ClassNode annotatedNode, PropertyNode pNode) {
-        String getterName = "get" + MetaClassHelper.capitalize(pNode.getName());
+        String getterName = "get" + capitalize(pNode.getName());
         boolean existingExplicitGetter = annotatedNode.getMethod(getterName, Parameter.EMPTY_ARRAY) != null;
         if (ClassHelper.boolean_TYPE.equals(pNode.getOriginType()) && !existingExplicitGetter) {
-            getterName = "is" + MetaClassHelper.capitalize(pNode.getName());
+            getterName = "is" + capitalize(pNode.getName());
         }
         return getterName;
     }

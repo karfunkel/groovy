@@ -42,10 +42,8 @@ import org.codehaus.groovy.classgen.asm.WriterControllerFactory;
 import org.codehaus.groovy.control.SourceUnit;
 import org.codehaus.groovy.transform.sc.StaticCompilationMetadataKeys;
 import org.codehaus.groovy.transform.stc.StaticTypesMarker;
-import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -54,8 +52,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.codehaus.groovy.transform.stc.StaticTypesMarker.INFERRED_LAMBDA_TYPE;
-import static org.codehaus.groovy.transform.stc.StaticTypesMarker.PARAMETER_TYPE;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
@@ -68,37 +64,37 @@ import static org.objectweb.asm.Opcodes.NEW;
 /**
  * Writer responsible for generating lambda classes in statically compiled mode.
  */
-public class StaticTypesLambdaWriter extends LambdaWriter {
+public class StaticTypesLambdaWriter extends LambdaWriter implements AbstractFunctionalInterfaceWriter {
     private static final String DO_CALL = "doCall";
-    private static final String ORIGINAL_PARAMETERS_WITH_EXACT_TYPE = "__ORIGINAL_PARAMETERS_WITH_EXACT_TYPE";
     private static final String LAMBDA_SHARED_VARIABLES = "__LAMBDA_SHARED_VARIABLES";
     private static final String ENCLOSING_THIS = "__enclosing_this";
     private static final String LAMBDA_THIS = "__lambda_this";
     private static final String INIT = "<init>";
     private static final String IS_GENERATED_CONSTRUCTOR = "__IS_GENERATED_CONSTRUCTOR";
-    private StaticTypesClosureWriter staticTypesClosureWriter;
-    private WriterController controller;
-    private WriterControllerFactory factory;
+    private final StaticTypesClosureWriter staticTypesClosureWriter;
+    private final WriterController controller;
+    private final WriterControllerFactory factory;
     private final Map<Expression,ClassNode> lambdaClassMap = new HashMap<>();
 
     public StaticTypesLambdaWriter(WriterController wc) {
         super(wc);
         this.staticTypesClosureWriter = new StaticTypesClosureWriter(wc);
         this.controller = wc;
-        this.factory = new WriterControllerFactory() {
-            public WriterController makeController(final WriterController normalController) {
-                return controller;
-            }
-        };
+        this.factory = normalController -> controller;
     }
 
     @Override
     public void writeLambda(LambdaExpression expression) {
-        ClassNode lambdaType = getLambdaType(expression);
-        ClassNode redirect = lambdaType.redirect();
+        ClassNode functionalInterfaceType = getFunctionalInterfaceType(expression);
+        if (null == functionalInterfaceType) {
+            // if the parameter type failed to be inferred, generate the default bytecode, which is actually a closure
+            super.writeLambda(expression);
+            return;
+        }
 
-        if (null == lambdaType || !ClassHelper.isFunctionalInterface(redirect)) {
-            // if the parameter type is not real FunctionInterface or failed to be inferred, generate the default bytecode, which is actually a closure
+        ClassNode redirect = functionalInterfaceType.redirect();
+        if (!ClassHelper.isFunctionalInterface(redirect)) {
+            // if the parameter type is not real FunctionalInterface, generate the default bytecode, which is actually a closure
             super.writeLambda(expression);
             return;
         }
@@ -121,61 +117,11 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
 
         mv.visitInvokeDynamicInsn(
                 abstractMethodNode.getName(),
-                createAbstractMethodDesc(lambdaType, lambdaWrapperClassNode),
+                createAbstractMethodDesc(functionalInterfaceType, lambdaWrapperClassNode),
                 createBootstrapMethod(isInterface),
-                createBootstrapMethodArguments(abstractMethodDesc, lambdaWrapperClassNode, syntheticLambdaMethodNode)
+                createBootstrapMethodArguments(abstractMethodDesc, Opcodes.H_INVOKEVIRTUAL, lambdaWrapperClassNode, syntheticLambdaMethodNode)
         );
         operandStack.replace(redirect, 2);
-
-        if (null != expression.getNodeMetaData(INFERRED_LAMBDA_TYPE)) {
-            // FIXME declaring variable whose initial value is a lambda, e.g. `Function<Integer, String> f = (Integer e) -> 'a' + e`
-            //       Groovy will `POP` automatically, use `DUP` to duplicate the element of operand stack:
-            /*
-                INVOKEDYNAMIC apply(LTest1$_p_lambda1;LTest1;)Ljava/util/function/Function; [
-                  // handle kind 0x6 : INVOKESTATIC
-                  java/lang/invoke/LambdaMetafactory.metafactory(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;
-                  // arguments:
-                  (Ljava/lang/Object;)Ljava/lang/Object;,
-                  // handle kind 0x5 : INVOKEVIRTUAL
-                  Test1$_p_lambda1.doCall(LTest1;Ljava/lang/Integer;)Ljava/lang/String;,
-                  (Ljava/lang/Integer;)Ljava/lang/String;
-                ]
-                DUP           <-------------- FIXME ADDED ON PURPOSE, WE SHOULD REMOVE IT AFTER FIND BETTER SOLUTION
-                ASTORE 0
-               L2
-                ALOAD 0
-                POP           <-------------- Since operand stack is not empty, the `POP`s are issued by `controller.getOperandStack().popDownTo(mark);` in the method `org.codehaus.groovy.classgen.asm.StatementWriter.writeExpressionStatement`, but when we try to `operandStack.pop();` instead of `mv.visitInsn(DUP);`, we will get AIOOBE...
-                POP
-            */
-
-            mv.visitInsn(DUP);
-
-            /*
-                org.codehaus.groovy.control.MultipleCompilationErrorsException: startup failed:
-                General error during class generation: size==0
-
-                java.lang.ArrayIndexOutOfBoundsException: size==0
-                    at org.codehaus.groovy.classgen.asm.OperandStack.getTopOperand(OperandStack.java:693)
-                    at org.codehaus.groovy.classgen.asm.BinaryExpressionHelper.evaluateEqual(BinaryExpressionHelper.java:397)
-                    at org.codehaus.groovy.classgen.asm.sc.StaticTypesBinaryExpressionMultiTypeDispatcher.evaluateEqual(StaticTypesBinaryExpressionMultiTypeDispatcher.java:179)
-                    at org.codehaus.groovy.classgen.AsmClassGenerator.visitDeclarationExpression(AsmClassGenerator.java:694)
-                    at org.codehaus.groovy.ast.expr.DeclarationExpression.visit(DeclarationExpression.java:89)
-                    at org.codehaus.groovy.classgen.asm.StatementWriter.writeExpressionStatement(StatementWriter.java:633)
-                    at org.codehaus.groovy.classgen.AsmClassGenerator.visitExpressionStatement(AsmClassGenerator.java:681)
-                    at org.codehaus.groovy.ast.stmt.ExpressionStatement.visit(ExpressionStatement.java:42)
-                             */
-                //            operandStack.pop();
-        }
-
-    }
-
-    private ClassNode getLambdaType(LambdaExpression expression) {
-        ClassNode type = expression.getNodeMetaData(PARAMETER_TYPE);
-
-        if (null == type) {
-            type = expression.getNodeMetaData(INFERRED_LAMBDA_TYPE);
-        }
-        return type;
     }
 
     private void loadEnclosingClassInstance() {
@@ -198,7 +144,7 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
         mv.visitInsn(DUP);
 
         loadEnclosingClassInstance();
-        loadEnclosingClassInstance();
+        controller.getOperandStack().dup();
 
         loadSharedVariables(syntheticLambdaMethodNode);
 
@@ -231,46 +177,13 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
         return lambdaSharedVariableParameters;
     }
 
-    private String createAbstractMethodDesc(ClassNode parameterType, ClassNode lambdaClassNode) {
+    private String createAbstractMethodDesc(ClassNode functionalInterfaceType, ClassNode lambdaClassNode) {
         List<Parameter> lambdaSharedVariableList = new LinkedList<>();
 
         prependEnclosingThis(lambdaSharedVariableList);
         prependParameter(lambdaSharedVariableList, LAMBDA_THIS, lambdaClassNode);
 
-        return BytecodeHelper.getMethodDescriptor(parameterType.redirect(), lambdaSharedVariableList.toArray(Parameter.EMPTY_ARRAY));
-    }
-
-    private Handle createBootstrapMethod(boolean isInterface) {
-        return new Handle(
-                Opcodes.H_INVOKESTATIC,
-                "java/lang/invoke/LambdaMetafactory",
-                "metafactory",
-                "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodType;Ljava/lang/invoke/MethodHandle;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/CallSite;",
-                isInterface
-        );
-    }
-
-    private Object[] createBootstrapMethodArguments(String abstractMethodDesc, ClassNode lambdaClassNode, MethodNode syntheticLambdaMethodNode) {
-        return new Object[]{
-                Type.getType(abstractMethodDesc),
-                new Handle(
-                        Opcodes.H_INVOKEVIRTUAL,
-                        lambdaClassNode.getName(),
-                        syntheticLambdaMethodNode.getName(),
-                        BytecodeHelper.getMethodDescriptor(syntheticLambdaMethodNode),
-                        lambdaClassNode.isInterface()
-                ),
-                Type.getType(BytecodeHelper.getMethodDescriptor(syntheticLambdaMethodNode.getReturnType(), syntheticLambdaMethodNode.getNodeMetaData(ORIGINAL_PARAMETERS_WITH_EXACT_TYPE)))
-        };
-    }
-
-    private String createMethodDescriptor(MethodNode abstractMethodNode) {
-        return BytecodeHelper.getMethodDescriptor(
-                abstractMethodNode.getReturnType().getTypeClass(),
-                Arrays.stream(abstractMethodNode.getParameters())
-                        .map(e -> e.getType().getTypeClass())
-                        .toArray(Class[]::new)
-        );
+        return BytecodeHelper.getMethodDescriptor(functionalInterfaceType.redirect(), lambdaSharedVariableList.toArray(Parameter.EMPTY_ARRAY));
     }
 
     public ClassNode getOrAddLambdaClass(LambdaExpression expression, int mods, MethodNode abstractMethodNode) {
@@ -309,7 +222,7 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
         Parameter[] localVariableParameters = syntheticLambdaMethodNode.getNodeMetaData(LAMBDA_SHARED_VARIABLES);
 
         addFieldsAndGettersForLocalVariables(answer, localVariableParameters);
-        ConstructorNode constructorNode = addConstructor(expression, localVariableParameters, answer, createBlockStatementForConstructor(expression));
+        ConstructorNode constructorNode = addConstructor(expression, localVariableParameters, answer, createBlockStatementForConstructor(expression, outerClass, classNode));
         constructorNode.putNodeMetaData(IS_GENERATED_CONSTRUCTOR, Boolean.TRUE);
 
         Parameter enclosingThisParameter = syntheticLambdaMethodNode.getParameters()[0];
@@ -333,7 +246,7 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
         Parameter[] localVariableParameters = getLambdaSharedVariables(expression);
         removeInitialValues(localVariableParameters);
 
-        List<Parameter> methodParameterList = new LinkedList<Parameter>(Arrays.asList(parametersWithExactType));
+        List<Parameter> methodParameterList = new LinkedList<>(Arrays.asList(parametersWithExactType));
         prependEnclosingThis(methodParameterList);
 
         MethodNode methodNode =
@@ -356,32 +269,24 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
         return prependParameter(methodParameterList, ENCLOSING_THIS, controller.getClassNode().getPlainNodeReference());
     }
 
-    private Parameter prependParameter(List<Parameter> methodParameterList, String parameterName, ClassNode parameterType) {
-        Parameter parameter = new Parameter(parameterType, parameterName);
-
-        parameter.setOriginType(parameterType);
-        parameter.setClosureSharedVariable(false);
-
-        methodParameterList.add(0, parameter);
-
-        return parameter;
-    }
-
     private Parameter[] createParametersWithExactType(LambdaExpression expression) {
         Parameter[] parameters = expression.getParameters();
         if (parameters == null) {
             parameters = Parameter.EMPTY_ARRAY;
         }
 
-        for (int i = 0; i < parameters.length; i++) {
-            ClassNode inferredType = parameters[i].getNodeMetaData(StaticTypesMarker.INFERRED_TYPE);
+        for (Parameter parameter : parameters) {
+            ClassNode parameterType = parameter.getType();
+            ClassNode inferredType = parameter.getNodeMetaData(StaticTypesMarker.INFERRED_TYPE);
 
             if (null == inferredType) {
                 continue;
             }
 
-            parameters[i].setType(inferredType);
-            parameters[i].setOriginType(inferredType);
+            ClassNode type = convertParameterType(parameterType, inferredType);
+
+            parameter.setType(type);
+            parameter.setOriginType(type);
         }
 
         return parameters;
@@ -393,11 +298,11 @@ public class StaticTypesLambdaWriter extends LambdaWriter {
     }
 
     private static final class TransformationVisitor extends ClassCodeVisitorSupport {
-        private CorrectAccessedVariableVisitor correctAccessedVariableVisitor;
-        private Parameter enclosingThisParameter;
+        private final CorrectAccessedVariableVisitor correctAccessedVariableVisitor;
+        private final Parameter enclosingThisParameter;
 
         public TransformationVisitor(InnerClassNode icn, Parameter enclosingThisParameter) {
-            correctAccessedVariableVisitor = new CorrectAccessedVariableVisitor(icn);
+            this.correctAccessedVariableVisitor = new CorrectAccessedVariableVisitor(icn);
             this.enclosingThisParameter = enclosingThisParameter;
         }
 

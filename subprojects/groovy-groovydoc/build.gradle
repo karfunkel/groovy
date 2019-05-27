@@ -21,7 +21,7 @@ dependencies {
     testCompile rootProject.sourceSets.test.runtimeClasspath
     compile project(':groovy-cli-picocli')
     compile project(':groovy-templates')
-    runtime project(':groovy-dateutil')
+    runtime project(':groovy-docgenerator')
     testCompile project(':groovy-test')
     testCompile "org.apache.ant:ant-testutil:$antVersion"
 }
@@ -30,4 +30,8 @@ compileJava {
     doLast {
         mkdir "$sourceSets.main.java.outputDir/META-INF"
     }
+}
+
+eclipse.classpath.file.whenMerged {
+    entries.removeAll { entry -> entry.path == '/groovy-xml' }
 }

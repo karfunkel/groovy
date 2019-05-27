@@ -19,13 +19,12 @@
 package org.codehaus.groovy.ast.decompiled;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * @author Peter Gromov
+ * Data structures holding class info to enable lazy loading
  */
 public class ClassStub extends MemberStub {
     final String className;
@@ -35,7 +34,9 @@ public class ClassStub extends MemberStub {
     final String[] interfaceNames;
     List<MethodStub> methods;
     List<FieldStub> fields;
-    final Map<String, Integer> innerClassModifiers = new HashMap<String, Integer>();
+
+    // Used to store the real access modifiers for inner classes
+    int innerClassModifiers = -1;
 
     public ClassStub(String className, int accessModifiers, String signature, String superName, String[] interfaceNames) {
         this.className = className;
@@ -64,6 +65,7 @@ class MethodStub extends MemberStub {
     final String signature;
     final String[] exceptions;
     Map<Integer, List<AnnotationStub>> parameterAnnotations;
+    List<String> parameterNames;
     Object annotationDefault;
 
     public MethodStub(String methodName, int accessModifiers, String desc, String signature, String[] exceptions) {
@@ -80,12 +82,18 @@ class FieldStub extends MemberStub {
     final int accessModifiers;
     final String desc;
     final String signature;
+    final Object value;
 
     public FieldStub(String fieldName, int accessModifiers, String desc, String signature) {
+        this(fieldName, accessModifiers, desc, signature, null);
+    }
+
+    public FieldStub(String fieldName, int accessModifiers, String desc, String signature, Object value) {
         this.fieldName = fieldName;
         this.accessModifiers = accessModifiers;
         this.desc = desc;
         this.signature = signature;
+        this.value = value;
     }
 }
 

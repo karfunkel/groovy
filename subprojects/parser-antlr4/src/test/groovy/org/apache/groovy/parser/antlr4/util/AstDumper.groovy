@@ -58,6 +58,7 @@ import org.codehaus.groovy.ast.expr.MapEntryExpression
 import org.codehaus.groovy.ast.expr.MapExpression
 import org.codehaus.groovy.ast.expr.MethodCallExpression
 import org.codehaus.groovy.ast.expr.MethodPointerExpression
+import org.codehaus.groovy.ast.expr.MethodReferenceExpression
 import org.codehaus.groovy.ast.expr.NotExpression
 import org.codehaus.groovy.ast.expr.PostfixExpression
 import org.codehaus.groovy.ast.expr.PrefixExpression
@@ -101,15 +102,12 @@ import java.lang.reflect.Modifier
 /**
  * Generate the groovy source according to the AST.
  * It is useful to verify the equality of new and old parser.
- *
- * @author  <a href="mailto:realbluesun@hotmail.com">Daniel.Sun</a>
- * Created on    2016/08/16
  */
 @CompileStatic
 class AstDumper {
     private ModuleNode ast;
 
-    public AstDumper(ModuleNode ast) {
+    AstDumper(ModuleNode ast) {
         this.ast = ast;
     }
 
@@ -118,7 +116,7 @@ class AstDumper {
      *
      * @return the groovy source code
      */
-    public String gen() {
+    String gen() {
         StringWriter out = new StringWriter();
 
         try {
@@ -146,10 +144,7 @@ class AstDumper {
  * we have to copy the source code(instead of invoking it): subprojects/groovy-console/src/main/groovy/groovy/inspect/swingui/AstNodeToScriptAdapter.groovy
  * *****************************************************
  *
- *
  * An adapter from ASTNode tree to source code.
- *
- * @author Hamlet D'Arcy
  */
 @CompileStatic
 class AstNodeToScriptVisitor extends CompilationUnit.PrimaryClassNodeOperation implements GroovyCodeVisitor, GroovyClassVisitor {
@@ -162,7 +157,7 @@ class AstNodeToScriptVisitor extends CompilationUnit.PrimaryClassNodeOperation i
     boolean showScriptClass
     boolean scriptHasBeenVisited
 
-    def AstNodeToScriptVisitor(Writer writer, boolean showScriptFreeForm = true, boolean showScriptClass = true) {
+    AstNodeToScriptVisitor(Writer writer, boolean showScriptFreeForm = true, boolean showScriptClass = true) {
         this._out = writer
         this.showScriptFreeForm = showScriptFreeForm
         this.showScriptClass = showScriptClass
@@ -739,9 +734,18 @@ class AstNodeToScriptVisitor extends CompilationUnit.PrimaryClassNodeOperation i
         print '}'
     }
 
-    //@Override
+    @Override
     void visitLambdaExpression(LambdaExpression expression) {
-        visitClosureExpression(expression)
+        print '( '
+        if (expression?.parameters) {
+            visitParameters(expression?.parameters)
+        }
+        print ') -> {'
+        printLineBreak()
+        indented {
+            expression?.code?.visit this
+        }
+        print '}'
     }
 
     @Override
@@ -1077,6 +1081,13 @@ class AstNodeToScriptVisitor extends CompilationUnit.PrimaryClassNodeOperation i
     void visitMethodPointerExpression(MethodPointerExpression expression) {
         expression?.expression?.visit this
         print '.&'
+        expression?.methodName?.visit this
+    }
+
+    @Override
+    void visitMethodReferenceExpression(MethodReferenceExpression expression) {
+        expression?.expression?.visit this
+        print '::'
         expression?.methodName?.visit this
     }
 

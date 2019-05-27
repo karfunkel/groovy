@@ -20,18 +20,16 @@ package gls.innerClass
 
 /**
  * Tests on inner interface usage
- *
- * @author Roshan Dawrani
  */
 class InnerInterfaceTest extends GroovyTestCase {
 
     void testStaticInnerInterfaceInAClass() {
         assertScript """
-            public class Foo4422V1 {
-                static public class Bar {
+            class Foo4422V1 {
+                static class Bar {
                     def bar(){}
                 }
-                static public interface Baz {
+                static interface Baz {
                     String TEST = ""
                     def baz()
                 }
@@ -51,8 +49,8 @@ class InnerInterfaceTest extends GroovyTestCase {
 
     void testStaticInnerInterfaceInAnInterface() {
         assertScript """
-            public interface Foo4422V2 {
-                static public interface Baz {}
+            interface Foo4422V2 {
+                static interface Baz {}
             }
             
             assert Foo4422V2.Baz != null
@@ -61,9 +59,9 @@ class InnerInterfaceTest extends GroovyTestCase {
     
     void testNonStaticInnerInterfaceInAClass() {
         assertScript """
-            public class Foo4422V3 {
-                public class Bar {}
-                public interface Baz {}
+            class Foo4422V3 {
+                class Bar {}
+                interface Baz {}
             }
             
             assert Foo4422V3.Bar != null
@@ -90,14 +88,12 @@ class InnerInterfaceTest extends GroovyTestCase {
     void testResolveInnerInterface() {
         assertScript '''
             class Usage implements Koo {
-              static class MyInner extends Inner {}
+                static class MyInner extends Inner {}
             }
 
-            public interface Koo {
-
+            interface Koo {
                 class Inner {
                 }
-
             }
             Koo.Inner
         '''

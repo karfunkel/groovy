@@ -18,13 +18,13 @@
  */
 package groovy.sql
 
+import groovy.test.GroovyTestCase
+
 import java.sql.Connection
 import java.sql.SQLException
 
 /**
  * Test Sql transaction features using a Sql built from a connection
- *
- * @author Paul King
  */
 class SqlTransactionTestCase extends GroovyTestCase {
 

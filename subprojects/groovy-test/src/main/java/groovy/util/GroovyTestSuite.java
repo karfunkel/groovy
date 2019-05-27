@@ -23,12 +23,11 @@ import groovy.lang.Script;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 import junit.textui.TestRunner;
-import org.codehaus.groovy.runtime.ScriptTestAdapter;
+import org.apache.groovy.test.ScriptTestAdapter;
 
 import java.io.File;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-
 
 /**
  * A TestSuite which will run a Groovy unit test case inside any Java IDE
@@ -45,9 +44,8 @@ import java.security.PrivilegedAction;
  * <code>
  * -Dtest=src/test/Foo.groovy
  * </code>
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
+@Deprecated
 public class GroovyTestSuite extends TestSuite {
 
     protected static String file = null;

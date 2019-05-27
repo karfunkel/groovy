@@ -461,6 +461,18 @@ as parameters to the method call. For output parameters, the resulting type must
 include::{rootProjectDir}/subprojects/groovy-sql/src/spec/test/SqlTest.groovy[tags=sql_use_stored_proc_inout,indent=0]
 ----
 
+[source,groovy]
+.Creating a stored procedure with an input/output parameter
+----
+include::{rootProjectDir}/subprojects/groovy-sql/src/spec/test/SqlTest.groovy[tags=sql_create_stored_fun_inout_parameter,indent=0]
+----
+
+[source,groovy]
+.Using a stored procedure with an input/output parameter
+----
+include::{rootProjectDir}/subprojects/groovy-sql/src/spec/test/SqlTest.groovy[tags=sql_use_stored_fun_inout_parameter,indent=0]
+----
+
 == Using DataSets
 
 (TBD)

@@ -30,9 +30,6 @@ import org.codehaus.groovy.runtime.InvokerHelper;
 import org.codehaus.groovy.runtime.InvokerInvocationException;
 import org.codehaus.groovy.syntax.Token;
 
-/**
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- */
 public class GStringTest extends TestSupport {
 
     public void testConstructor() throws Exception {
@@ -81,7 +78,7 @@ public class GStringTest extends TestSupport {
         Class fooClass = loadClass(classNode);
         assertTrue("Loaded a new class", fooClass != null);
 
-        Object bean = fooClass.newInstance();
+        Object bean = fooClass.getDeclaredConstructor().newInstance();
         assertTrue("Managed to create bean", bean != null);
 
         //Object[] array = { new Integer(1234), "abc", "def" };

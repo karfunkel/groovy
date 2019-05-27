@@ -18,6 +18,8 @@
  */
 package org.codehaus.groovy.vmplugin.v5;
 
+import groovy.lang.MetaClass;
+import groovy.lang.MetaMethod;
 import org.codehaus.groovy.GroovyBugError;
 import org.codehaus.groovy.ast.AnnotatedNode;
 import org.codehaus.groovy.ast.AnnotationNode;
@@ -43,6 +45,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -51,19 +54,21 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.MalformedParameterizedTypeException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.ReflectPermission;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.security.Permission;
 import java.util.List;
 
 /**
  * java 5 based functions
- *
- * @author Jochen Theodorou
  */
 public class Java5 implements VMPlugin {
     private static final Class[] EMPTY_CLASS_ARRAY = new Class[0];
     private static final Class[] PLUGIN_DGM = {PluginDefaultGroovyMethods.class};
+    private static final Method[] EMPTY_METHOD_ARRAY = new Method[0];
+    private static final Annotation[] EMPTY_ANNOTATION_ARRAY = new Annotation[0];
 
     public void setAdditionalClassInformation(ClassNode cn) {
         setGenericsTypes(cn);
@@ -276,7 +281,7 @@ public class Java5 implements VMPlugin {
             try {
                 declaredMethods = type.getDeclaredMethods();
             } catch (SecurityException se) {
-                declaredMethods = new Method[0];
+                declaredMethods = EMPTY_METHOD_ARRAY;
             }
             for (Method declaredMethod : declaredMethods) {
                 try {
@@ -285,8 +290,7 @@ public class Java5 implements VMPlugin {
                     if (valueExpression == null)
                         continue;
                     node.setMember(declaredMethod.getName(), valueExpression);
-                } catch (IllegalAccessException e) {
-                } catch (InvocationTargetException e) {
+                } catch (IllegalAccessException | InvocationTargetException e) {
                 }
             }
         }
@@ -373,7 +377,7 @@ public class Java5 implements VMPlugin {
             Method[] methods = clazz.getDeclaredMethods();
             for (Method m : methods) {
                 ClassNode ret = makeClassNode(compileUnit, m.getGenericReturnType(), m.getReturnType());
-                Parameter[] params = makeParameters(compileUnit, m.getGenericParameterTypes(), m.getParameterTypes(), m.getParameterAnnotations());
+                Parameter[] params = processParameters(compileUnit, m);
                 ClassNode[] exceptions = makeClassNodes(compileUnit, m.getGenericExceptionTypes(), m.getExceptionTypes());
                 MethodNode mn = new MethodNode(m.getName(), m.getModifiers(), ret, params, exceptions, null);
                 mn.setSynthetic(m.isSynthetic());
@@ -384,7 +388,15 @@ public class Java5 implements VMPlugin {
             }
             Constructor[] constructors = clazz.getDeclaredConstructors();
             for (Constructor ctor : constructors) {
-                Parameter[] params = makeParameters(compileUnit, ctor.getGenericParameterTypes(), ctor.getParameterTypes(), ctor.getParameterAnnotations());
+                Type[] types = ctor.getGenericParameterTypes();
+                Parameter[] params1 = Parameter.EMPTY_ARRAY;
+                if (types.length > 0) {
+                    params1 = new Parameter[types.length];
+                    for (int i = 0; i < params1.length; i++) {
+                        params1[i] = makeParameter(compileUnit, types[i], ctor.getParameterTypes()[i], getConstructorParameterAnnotations(ctor)[i], "param" + i);
+                    }
+                }
+                Parameter[] params = params1;
                 ClassNode[] exceptions = makeClassNodes(compileUnit, ctor.getGenericExceptionTypes(), ctor.getExceptionTypes());
                 classNode.addConstructor(ctor.getModifiers(), params, exceptions, null);
             }
@@ -403,6 +415,63 @@ public class Java5 implements VMPlugin {
         } catch (MalformedParameterizedTypeException e) {
             throw new RuntimeException("Unable to configure class node for class "+classNode.toString(false)+" due to malformed parameterized types", e);
         }
+    }
+
+    protected Parameter[] processParameters(CompileUnit compileUnit, Method m) {
+        Type[] types = m.getGenericParameterTypes();
+        Parameter[] params = Parameter.EMPTY_ARRAY;
+        if (types.length > 0) {
+            params = new Parameter[types.length];
+            for (int i = 0; i < params.length; i++) {
+                params[i] = makeParameter(compileUnit, types[i], m.getParameterTypes()[i], m.getParameterAnnotations()[i], "param" + i);
+            }
+        }
+        return params;
+    }
+
+    /**
+     * Synthetic parameters such as those added for inner class constructors may
+     * not be included in the parameter annotations array. This is the case when
+     * at least one parameter of an inner class constructor has an annotation with
+     * a RUNTIME retention (this occurs for JDK8 and below). This method will
+     * normalize the annotations array so that it contains the same number of
+     * elements as the array returned from {@link Constructor#getParameterTypes()}.
+     *
+     * If adjustment is required, the adjusted array will be prepended with a
+     * zero-length element. If no adjustment is required, the original array
+     * from {@link Constructor#getParameterAnnotations()} will be returned.
+     *
+     * @param constructor the Constructor for which to return parameter annotations
+     * @return array of arrays containing the annotations on the parameters of the given Constructor
+     */
+    private Annotation[][] getConstructorParameterAnnotations(Constructor<?> constructor) {
+        /*
+         * TODO: Remove after JDK9 is the minimum JDK supported
+         *
+         * JDK9+ correctly accounts for the synthetic parameter and when it becomes
+         * the minimum version this method should no longer be required.
+         */
+        int parameterCount = constructor.getParameterTypes().length;
+        Annotation[][] annotations = constructor.getParameterAnnotations();
+        int diff = parameterCount - annotations.length;
+        if (diff > 0) {
+            // May happen on JDK8 and below. We add elements to the front of the array to account for the synthetic params:
+            // - for an inner class we expect one param to account for the synthetic outer reference
+            // - for an enum we expect two params to account for the synthetic name and ordinal
+            if ((!constructor.getDeclaringClass().isEnum() && diff > 1) || diff > 2) {
+                throw new GroovyBugError(
+                        "Constructor parameter annotations length [" + annotations.length + "] " +
+                        "does not match the parameter length: " + constructor
+                );
+            }
+            Annotation[][] adjusted = new Annotation[parameterCount][];
+            for (int i = 0; i < diff; i++) {
+                adjusted[i] = EMPTY_ANNOTATION_ARRAY;
+            }
+            System.arraycopy(annotations, 0, adjusted, diff, annotations.length);
+            return adjusted;
+        }
+        return annotations;
     }
 
     private void makeInterfaceTypes(CompileUnit cu, ClassNode classNode, Class clazz) {
@@ -448,20 +517,9 @@ public class Java5 implements VMPlugin {
         return back.getPlainNodeReference();
     }
 
-    private Parameter[] makeParameters(CompileUnit cu, Type[] types, Class[] cls, Annotation[][] parameterAnnotations) {
-        Parameter[] params = Parameter.EMPTY_ARRAY;
-        if (types.length > 0) {
-            params = new Parameter[types.length];
-            for (int i = 0; i < params.length; i++) {
-                params[i] = makeParameter(cu, types[i], cls[i], parameterAnnotations[i], i);
-            }
-        }
-        return params;
-    }
-
-    private Parameter makeParameter(CompileUnit cu, Type type, Class cl, Annotation[] annotations, int idx) {
+    protected Parameter makeParameter(CompileUnit cu, Type type, Class cl, Annotation[] annotations, String name) {
         ClassNode cn = makeClassNode(cu, type, cl);
-        Parameter parameter = new Parameter(cn, "param" + idx);
+        Parameter parameter = new Parameter(cn, name);
         setAnnotationMetaData(annotations, parameter);
         return parameter;
     }
@@ -482,5 +540,54 @@ public class Java5 implements VMPlugin {
     public Object invokeHandle(Object handle, Object[] args) throws Throwable {
         throw new GroovyBugError("invokeHandle requires at least JDK 7");
     }
+
+    /**
+     * The following scenarios can not set accessible, i.e. the return value is false
+     * 1) SecurityException occurred
+     * 2) the accessible object is a Constructor object for the Class class
+     *
+     * @param accessibleObject the accessible object to check
+     * @param callerClass the callerClass to invoke {@code setAccessible}
+     * @return the check result
+     */
+    @Override
+    public boolean checkCanSetAccessible(AccessibleObject accessibleObject, Class<?> callerClass) {
+        SecurityManager sm = System.getSecurityManager();
+        try {
+            if (sm != null) {
+                sm.checkPermission(ACCESS_PERMISSION);
+            }
+        } catch (SecurityException e) {
+            return false;
+        }
+
+        if (accessibleObject instanceof Constructor) {
+            Constructor c = (Constructor) accessibleObject;
+            if (c.getDeclaringClass() == Class.class) {
+                return false; // Cannot make a java.lang.Class constructor accessible
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean trySetAccessible(AccessibleObject ao) {
+        try {
+            ao.setAccessible(true);
+            return true;
+        } catch (SecurityException e) {
+            throw e;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    @Override
+    public MetaMethod transformMetaMethod(MetaClass metaClass, MetaMethod metaMethod, Class<?>[] params, Class<?> caller) {
+        return metaMethod;
+    }
+
+    private static final Permission ACCESS_PERMISSION = new ReflectPermission("suppressAccessChecks");
 }
 

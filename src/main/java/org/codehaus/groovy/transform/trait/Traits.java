@@ -44,12 +44,12 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
  * A collection of utility methods used to deal with traits.
  *
- * @author Cédric Champeau
  * @since 2.3.0
  */
 public abstract class Traits {
@@ -63,6 +63,7 @@ public abstract class Traits {
     static final String TRAIT_TYPE_NAME = "@" + TRAIT_CLASSNODE.getNameWithoutPackage();
     static final String TRAIT_HELPER = "$Trait$Helper";
     static final String FIELD_HELPER = "$Trait$FieldHelper";
+    static final String STATIC_FIELD_HELPER = "$Trait$StaticFieldHelper";
     static final String DIRECT_SETTER_SUFFIX = "$set";
     static final String DIRECT_GETTER_SUFFIX = "$get";
     static final String INIT_METHOD = "$init$";
@@ -84,6 +85,10 @@ public abstract class Traits {
 
     static String fieldHelperClassName(final ClassNode traitNode) {
         return traitNode.getName() + FIELD_HELPER;
+    }
+
+    static String staticFieldHelperClassName(final ClassNode traitNode) {
+        return traitNode.getName() + STATIC_FIELD_HELPER;
     }
 
     static String helperGetterName(final FieldNode field) {
@@ -117,9 +122,14 @@ public abstract class Traits {
         return findHelpers(trait).getFieldHelper();
     }
 
+    public static ClassNode findStaticFieldHelper(final ClassNode trait) {
+        return findHelpers(trait).getStaticFieldHelper();
+    }
+
     static TraitHelpersTuple findHelpers(final ClassNode trait) {
         ClassNode helperClassNode = null;
         ClassNode fieldHelperClassNode = null;
+        ClassNode staticFieldHelperClassNode = null;
         Iterator<InnerClassNode> innerClasses = trait.redirect().getInnerClasses();
         if (innerClasses != null && innerClasses.hasNext()) {
             // trait defined in same source unit
@@ -127,6 +137,8 @@ public abstract class Traits {
                 ClassNode icn = innerClasses.next();
                 if (icn.getName().endsWith(Traits.FIELD_HELPER)) {
                     fieldHelperClassNode = icn;
+                } else if (icn.getName().endsWith(Traits.STATIC_FIELD_HELPER)) {
+                    staticFieldHelperClassNode = icn;
                 } else if (icn.getName().endsWith(Traits.TRAIT_HELPER)) {
                     helperClassNode = icn;
                 }
@@ -139,14 +151,15 @@ public abstract class Traits {
                 helperClassNode = ClassHelper.make(Class.forName(helperClassName, false, classLoader));
                 try {
                     fieldHelperClassNode = ClassHelper.make(classLoader.loadClass(Traits.fieldHelperClassName(trait)));
+                    staticFieldHelperClassNode = ClassHelper.make(classLoader.loadClass(Traits.staticFieldHelperClassName(trait)));
                 } catch (ClassNotFoundException e) {
-                    // not a problem, the field helper may be absent
+                    // not a problem, the field helpers may be absent
                 }
             } catch (ClassNotFoundException e) {
                 throw new GroovyBugError("Couldn't find trait helper classes on compile classpath!",e);
             }
         }
-        return new TraitHelpersTuple(helperClassNode,  fieldHelperClassNode);
+        return new TraitHelpersTuple(helperClassNode,  fieldHelperClassNode, staticFieldHelperClassNode);
     }
 
     /**
@@ -347,6 +360,24 @@ public abstract class Traits {
 
     static String getSuperTraitMethodName(ClassNode trait, String method) {
         return trait.getName().replace("_","__").replace('.','_')+SUPER_TRAIT_METHOD_PREFIX+method;
+    }
+
+    /**
+     * Find all traits associated with the given classnode
+     *
+     * @param cNode the given classnode
+     * @return the list of ordered trait classnodes
+     */
+    public static List<ClassNode> findTraits(ClassNode cNode) {
+        LinkedHashSet<ClassNode> interfaces = new LinkedHashSet<ClassNode>();
+        collectAllInterfacesReverseOrder(cNode, interfaces);
+        List<ClassNode> traits = new LinkedList<ClassNode>();
+        for (ClassNode candidate : interfaces) {
+            if (isAnnotatedWithTrait(candidate)) {
+                traits.add(candidate);
+            }
+        }
+        return traits;
     }
 
     /**

@@ -40,8 +40,6 @@ import java.util.logging.Logger;
  * groovy.indy.logging. Other than that this class contains the 
  * interfacing methods with bytecode for invokedynamic as well as some helper
  * methods and classes.
- * 
- * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
  */
 public class IndyInterface {
 
@@ -55,7 +53,6 @@ public class IndyInterface {
 
         /**
          * Enum for easy differentiation between call types
-         * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
          */
         public static enum CALL_TYPES {
             /**Method invocation type*/         METHOD("invoke"), 
@@ -207,7 +204,7 @@ public class IndyInterface {
         private static CallSite realBootstrap(Lookup caller, String name, int callID, MethodType type, boolean safe, boolean thisCall, boolean spreadCall) {
             // since indy does not give us the runtime types
             // we produce first a dummy call site, which then changes the target to one,
-            // that does the method selection including the the direct call to the 
+            // that does the method selection including the direct call to the
             // real method.
             MutableCallSite mc = new MutableCallSite(type);
             MethodHandle mh = makeFallBack(mc,caller.lookupClass(),name,callID,type,safe,thisCall,spreadCall);

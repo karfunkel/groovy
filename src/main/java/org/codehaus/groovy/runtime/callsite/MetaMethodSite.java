@@ -23,12 +23,10 @@ import groovy.lang.MetaMethod;
 
 /**
  * Call site which caches meta method
- * 
- * @author Alex Tkachman
  */
 public abstract class MetaMethodSite extends MetaClassSite {
     final MetaMethod metaMethod;
-    protected final Class [] params;
+    protected final Class[] params;
 
     public MetaMethodSite(CallSite site, MetaClass metaClass, MetaMethod metaMethod, Class[] params) {
         super(site, metaClass);

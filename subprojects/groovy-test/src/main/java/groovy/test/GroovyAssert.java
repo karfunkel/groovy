@@ -26,12 +26,13 @@ import org.junit.Test;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 /**
  * <p>{@code GroovyAssert} contains a set of static assertion and test helper methods and is supposed to be a Groovy
- * extension of JUnit 4's {@link org.junit.Assert} class. In case JUnit 3 is the choice, the {@link groovy.util.GroovyTestCase}
+ * extension of JUnit 4's {@link org.junit.Assert} class. In case JUnit 3 is the choice, the {@link groovy.test.GroovyTestCase}
  * is meant to be used for writing tests based on {@link junit.framework.TestCase}.
  * </p>
  *
@@ -50,11 +51,7 @@ import java.util.logging.Logger;
  * </pre>
  * </p>
  *
- * @see groovy.util.GroovyTestCase
- *
- * @author Paul King
- * @author Andre Steingress
- *
+ * @see groovy.test.GroovyTestCase
  * @since 2.3
  */
 public class GroovyAssert extends org.junit.Assert {
@@ -335,6 +332,19 @@ public class GroovyAssert extends org.junit.Assert {
             notYetImplementedFlag.set(null);
         }
         return true;
+    }
+
+    /**
+     * @return true if the JDK version is at least the version given by specVersion (e.g. "1.8", "9.0")
+     * @since 2.5.7
+     */
+    public static boolean isAtLeastJdk(String specVersion) {
+        boolean result = false;
+        try {
+            result = new BigDecimal(System.getProperty("java.specification.version")).compareTo(new BigDecimal(specVersion)) >= 0;
+        } catch (Exception ignore) {
+        }
+        return result;
     }
 
     private static String buildExceptionList(Throwable th) {

@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedMethod;
 import static org.apache.groovy.ast.tools.ClassNodeUtils.hasExplicitConstructor;
 import static org.apache.groovy.ast.tools.ImmutablePropertyUtils.builtinOrMarkedImmutableClass;
 import static org.apache.groovy.ast.tools.ImmutablePropertyUtils.createErrorMessage;
@@ -71,6 +72,7 @@ import static org.codehaus.groovy.ast.tools.GeneralUtils.hasDeclaredMethod;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifElseS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.ifS;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.isTrueX;
+import static org.codehaus.groovy.ast.tools.GeneralUtils.localVarX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.neX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.orX;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.params;
@@ -238,7 +240,7 @@ public class ImmutableASTTransformation extends AbstractASTTransformation implem
                         block(
                                 new VariableScope(),
                                 declS(
-                                        varX("newValue", ClassHelper.OBJECT_TYPE),
+                                        localVarX("newValue", ClassHelper.OBJECT_TYPE),
                                         callX(
                                                 varX("map", HMAP_TYPE),
                                                 "get",
@@ -246,7 +248,7 @@ public class ImmutableASTTransformation extends AbstractASTTransformation implem
                                         )
                                 ),
                                 declS(
-                                        varX("oldValue", ClassHelper.OBJECT_TYPE),
+                                        localVarX("oldValue", ClassHelper.OBJECT_TYPE),
                                         callThisX(getGetterName(pNode))
                                 ),
                                 ifS(
@@ -297,8 +299,8 @@ public class ImmutableASTTransformation extends AbstractASTTransformation implem
                 ),
                 returnS(varX("this", cNode))
         ));
-        body.addStatement(declS(varX("dirty", ClassHelper.boolean_TYPE), ConstantExpression.PRIM_FALSE));
-        body.addStatement(declS(varX("construct", HMAP_TYPE), ctorX(HMAP_TYPE)));
+        body.addStatement(declS(localVarX("dirty", ClassHelper.boolean_TYPE), ConstantExpression.PRIM_FALSE));
+        body.addStatement(declS(localVarX("construct", HMAP_TYPE), ctorX(HMAP_TYPE)));
 
         // Check for each property
         for (final PropertyNode pNode : pList) {
@@ -313,7 +315,7 @@ public class ImmutableASTTransformation extends AbstractASTTransformation implem
 
         final ClassNode clonedNode = cNode.getPlainNodeReference();
 
-        cNode.addMethod(COPY_WITH_METHOD,
+        addGeneratedMethod(cNode, COPY_WITH_METHOD,
                 ACC_PUBLIC | ACC_FINAL,
                 clonedNode,
                 params(new Parameter(new ClassNode(Map.class), "map")),

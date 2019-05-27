@@ -33,12 +33,8 @@ import java.util.logging.Logger;
  * In case JUnit 4 is used, see {@link groovy.test.GroovyAssert}.
  *
  * @see groovy.test.GroovyAssert
- *
- * @author <a href="mailto:bob@werken.com">bob mcwhirter</a>
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Dierk Koenig (the notYetImplemented feature, changes to shouldFail)
- * @author Andre Steingress
  */
+@Deprecated
 public class GroovyTestCase extends TestCase {
 
     protected static Logger log = Logger.getLogger(GroovyTestCase.class.getName());

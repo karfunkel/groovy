@@ -18,8 +18,13 @@
  */
 package groovy.xml.dom
 
-import groovy.xml.*
-import static groovy.xml.XmlAssert.assertXmlEquals
+
+import groovy.xml.DOMBuilder
+import groovy.xml.NamespaceBuilder
+import groovy.xml.TestXmlSupport
+import groovy.xml.XmlUtil
+
+import static groovy.util.XmlAssert.assertXmlEquals
 
 class NamespaceDOMTest extends TestXmlSupport {
 

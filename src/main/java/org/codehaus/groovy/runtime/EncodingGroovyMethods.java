@@ -26,7 +26,6 @@ import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -46,6 +45,7 @@ public class EncodingGroovyMethods {
     private static final char[] T_TABLE_URLSAFE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=".toCharArray();
     private static final String CHUNK_SEPARATOR = "\r\n";
     private static final String MD5 = "MD5";
+    private static final String SHA_256 = "SHA-256";
 
     /**
      * Produce a Writable object which writes the Base64 encoding of the byte array.
@@ -390,6 +390,26 @@ public class EncodingGroovyMethods {
     }
 
     /**
+     * Calculate SHA-256 of the CharSequence instance
+     * @return SHA-256 value
+     * @throws NoSuchAlgorithmException if SHA-256 algorithm not found
+     * @since 2.5.3
+     */
+    public static String sha256(CharSequence self) throws NoSuchAlgorithmException {
+        return digest(self, SHA_256);
+    }
+
+    /**
+     * Calculate SHA-256 of the byte array
+     * @return SHA-256 value
+     * @throws NoSuchAlgorithmException if SHA-256 algorithm not found
+     * @since 2.5.3
+     */
+    public static String sha256(byte[] self) throws NoSuchAlgorithmException {
+        return digest(self, SHA_256);
+    }
+
+    /**
      * digest the CharSequence instance
      * @param algorithm the name of the algorithm requested, e.g. MD5, SHA-1, SHA-256, etc.
      * @return digested value
@@ -415,6 +435,6 @@ public class EncodingGroovyMethods {
         MessageDigest md = MessageDigest.getInstance(algorithm);
         md.update(ByteBuffer.wrap(self));
 
-        return String.format("%032x", new BigInteger(1, md.digest()));
+        return encodeHex(md.digest()).toString();
     }
 }

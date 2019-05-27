@@ -18,8 +18,12 @@
  */
 package org.codehaus.groovy.classgen;
 
-import groovy.lang.*;
-import groovy.util.GroovyTestCase;
+import groovy.lang.Binding;
+import groovy.lang.GroovyClassLoader;
+import groovy.lang.GroovyCodeSource;
+import groovy.lang.GroovyObject;
+import groovy.lang.Script;
+import groovy.test.GroovyTestCase;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.ast.CompileUnit;
 import org.codehaus.groovy.ast.FieldNode;
@@ -45,8 +49,6 @@ import java.security.PrivilegedAction;
 
 /**
  * Base class for test cases
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
  */
 @Ignore("base class for tests")
 public class TestSupport extends GroovyTestCase implements Opcodes {
@@ -172,7 +174,7 @@ public class TestSupport extends GroovyTestCase implements Opcodes {
 
     protected GroovyObject compile(String fileName) throws Exception {
         Class groovyClass = loader.parseClass(new GroovyCodeSource(new File(fileName)));
-        GroovyObject object = (GroovyObject) groovyClass.newInstance();
+        GroovyObject object = (GroovyObject) groovyClass.getDeclaredConstructor().newInstance();
         assertTrue(object != null);
         return object;
     }

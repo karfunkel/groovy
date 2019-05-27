@@ -18,11 +18,9 @@
  */
 package groovy.json
 
+import groovy.test.GroovyTestCase
 import org.apache.groovy.json.internal.Value
 
-/**
- * @author Guillaume Laforge
- */
 class JsonSlurperTest extends GroovyTestCase {
 
     def parser

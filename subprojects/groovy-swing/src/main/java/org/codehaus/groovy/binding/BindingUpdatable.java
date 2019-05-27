@@ -19,9 +19,9 @@
 package org.codehaus.groovy.binding;
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
  * @since Groovy 1.1
  */
+@Deprecated
 public interface BindingUpdatable {
 
     /**

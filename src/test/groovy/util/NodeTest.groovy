@@ -18,15 +18,12 @@
  */
 package groovy.util
 
-import groovy.xml.QName
+import groovy.namespace.QName
 
 /**
  * Tests the use of the structured Attribute type
- *
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Paul King
  */
-public class NodeTest extends GroovyTestCase {
+class NodeTest extends GroovyTestCase {
 
     void testSimpleAttribute() {
         Node node = new Node(null, "transactional");

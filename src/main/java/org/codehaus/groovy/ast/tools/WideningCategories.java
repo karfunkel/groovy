@@ -52,7 +52,7 @@ import static org.codehaus.groovy.ast.ClassHelper.isNumberType;
 import static org.codehaus.groovy.ast.ClassHelper.isPrimitiveType;
 import static org.codehaus.groovy.ast.ClassHelper.long_TYPE;
 import static org.codehaus.groovy.ast.ClassHelper.short_TYPE;
-
+import static org.codehaus.groovy.ast.GenericsType.GenericsTypeName;
 /**
  * This class provides helper methods to determine the type from a widening
  * operation for example for a plus operation.
@@ -67,9 +67,6 @@ import static org.codehaus.groovy.ast.ClassHelper.short_TYPE;
  * the number 1 being int, since the 1 is an int. The 2l is a long, therefore the
  * int category will not apply and the result type can't be int. The next category
  * in the list is long, and since both apply to long, the result type is a long.
- *
- * @author <a href="mailto:blackdrag@gmx.org">Jochen "blackdrag" Theodorou</a>
- * @author Cedric Champeau
  */
 public class WideningCategories {
 
@@ -303,14 +300,15 @@ public class WideningCategories {
         ClassNode superClass = source.getUnresolvedSuperClass();
         // copy generic type information if available
         if (superClass!=null && superClass.isUsingGenerics()) {
-            Map<String, GenericsType> genericsTypeMap = GenericsUtils.extractPlaceholders(source);
+            Map<GenericsTypeName, GenericsType> genericsTypeMap = GenericsUtils.extractPlaceholders(source);
             GenericsType[] genericsTypes = superClass.getGenericsTypes();
             if (genericsTypes!=null) {
                 GenericsType[] copyTypes = new GenericsType[genericsTypes.length];
                 for (int i = 0; i < genericsTypes.length; i++) {
                     GenericsType genericsType = genericsTypes[i];
-                    if (genericsType.isPlaceholder() && genericsTypeMap.containsKey(genericsType.getName())) {
-                        copyTypes[i] = genericsTypeMap.get(genericsType.getName());
+                    GenericsTypeName gtn = new GenericsTypeName(genericsType.getName());
+                    if (genericsType.isPlaceholder() && genericsTypeMap.containsKey(gtn)) {
+                        copyTypes[i] = genericsTypeMap.get(gtn);
                     } else {
                         copyTypes[i] = genericsType;
                     }
@@ -503,7 +501,7 @@ public class WideningCategories {
                 return;
             }
             if (interfaceNode.implementsInterface(node)) {
-                // the interface beeing added is more specific than the one in the list, replace it
+                // the interface being added is more specific than the one in the list, replace it
                 nodes.set(i, interfaceNode);
                 return;
             }
@@ -585,7 +583,7 @@ public class WideningCategories {
     /**
      * This {@link ClassNode} specialization is used when the lowest upper bound of two types
      * cannot be represented by an existing type. For example, if B extends A,  C extends A
-     * and both C & B implement a common interface not implemented by A, then we use this class
+     * and both C and B implement a common interface not implemented by A, then we use this class
      * to represent the bound.
      *
      * At compile time, some classes like {@link org.codehaus.groovy.classgen.AsmClassGenerator} need

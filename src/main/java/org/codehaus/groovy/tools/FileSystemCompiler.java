@@ -293,7 +293,7 @@ public class FileSystemCompiler {
         public String[] getVersion() {
             return new String[] {
                     "Groovy compiler version " + GroovySystem.getVersion(),
-                    "Copyright 2003-2018 The Apache Software Foundation. http://groovy-lang.org/",
+                    "Copyright 2003-2019 The Apache Software Foundation. http://groovy-lang.org/",
                     "",
             };
         }
@@ -330,6 +330,9 @@ public class FileSystemCompiler {
 
         @Option(names = {"-pa", "--parameters"}, description = "Generate metadata for reflection on method parameter names (jdk8+ only)")
         private boolean parameterMetadata;
+
+        @Option(names = {"-pr", "--enable-preview"}, description = "Enable preview Java features (JEP 12) (jdk12+ only) - must be after classpath but before other arguments")
+        private boolean previewFeatures;
 
         @Option(names = {"-j", "--jointCompilation"}, description = "Attach javac compiler to compile .java files")
         private boolean jointCompilation;
@@ -372,6 +375,7 @@ public class FileSystemCompiler {
             }
 
             configuration.setParameters(parameterMetadata);
+            configuration.setPreviewFeatures(previewFeatures);
             configuration.setSourceEncoding(encoding);
             configuration.setScriptBaseClass(scriptBaseClass);
 

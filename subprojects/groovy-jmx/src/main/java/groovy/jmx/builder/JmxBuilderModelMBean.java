@@ -43,8 +43,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * The JmxBuilderModelMBean is the MBean class that proxies exported POGO/POJO inside the MBeanServer.
  * When JmxBuilder exports an object instance, an instance of this class is created and exported inside the
  * MBeanServer.
- *
- * @author Vladimir Vivien
  */
 public class JmxBuilderModelMBean extends RequiredModelMBean implements NotificationListener {
     private final List<String> methodListeners = new ArrayList<String>(0);
@@ -74,7 +72,7 @@ public class JmxBuilderModelMBean extends RequiredModelMBean implements Notifica
     /**
      * Registers listeners for operation calls (i.e. method, getter, and setter calls) when
      * invoked on this bean from the MBeanServer.  Descriptor should contain a map with layout
-     * item -> [Map[methodListener:[target:"", tpe:"", callback:&amp;Closure], ... ,]]
+     * {@code item -> [Map[methodListener:[target:"", tpe:"", callback:&Closure], ... ,]]}
      *
      * @param descriptor MetaMap descriptor containing description of operation call listeners
      */
@@ -111,7 +109,8 @@ public class JmxBuilderModelMBean extends RequiredModelMBean implements Notifica
 
     /**
      * Sets up event listeners for this MBean as described in the descriptor.
-     * The descriptor contains a map with layout {item -> Map[event:"...", from:ObjectName, callback:&amp;Closure],...,}
+     * The descriptor contains a map with layout
+     * {item -&gt; Map[event:"...", from:ObjectName, callback:&amp;Closure],...,}
      *
      * @param server     the MBeanServer is to be registered.
      * @param descriptor a map containing info about the event
@@ -173,7 +172,6 @@ public class JmxBuilderModelMBean extends RequiredModelMBean implements Notifica
      * Internal class AttributeChangedListener provides hooks to handle attribute-change events
      * that occurs on registered MBeans.
      *
-     * @author Vladimir Vivien
      * @see groovy.jmx.builder.JmxBuilderModelMBean
      */
     private static final class AttributeChangedListener implements NotificationListener {

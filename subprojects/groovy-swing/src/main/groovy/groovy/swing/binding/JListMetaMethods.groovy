@@ -18,41 +18,40 @@
  */
 package groovy.swing.binding
 
-import javax.swing.*
+import javax.swing.JList
+import javax.swing.ListModel
 
 /**
- * @author <a href="mailto:shemnon@yahoo.com">Danno Ferrin</a>
- * @author Andres Almiray
  * @since 1.7.5
  */
 class JListMetaMethods {
-    public static void enhanceMetaClass(JList list) {
+    static void enhanceMetaClass(JList list) {
         AbstractSyntheticMetaMethods.enhance(list, [
-            getElements:{->
-                ListModel model = delegate.model;
-                def results = []
-                int size = model.size
-                for (int i = 0; i < size; i++) {
-                    results += model.getElementAt(i)
-                }
-                return results
-            },
+                getElements        : { ->
+                    ListModel model = delegate.model
+                    def results = []
+                    int size = model.size
+                    for (int i = 0; i < size; i++) {
+                        results += model.getElementAt(i)
+                    }
+                    return results
+                },
 
-            getSelectedElement:{->
-                return delegate.selectedValue
-            },
+                getSelectedElement : { ->
+                    return delegate.selectedValue
+                },
 
-            getSelectedElements:{->
-                return delegate.selectedValues
-            },
+                getSelectedElements: { ->
+                    return delegate.selectedValues
+                },
 
-            setSelectedElement:{def item->
-                return delegate.setSelectedValue(item, true)
-            },
+                setSelectedElement : { def item ->
+                    return delegate.setSelectedValue(item, true)
+                },
 
-            setSelectedValue:{def item->
-                return delegate.setSelectedValue(item, true)
-            },
-        ]);
+                setSelectedValue   : { def item ->
+                    return delegate.setSelectedValue(item, true)
+                },
+        ])
     }
 }

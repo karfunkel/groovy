@@ -72,6 +72,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.codehaus.groovy.ast.ClassHelper.Character_TYPE;
+import static org.codehaus.groovy.ast.ClassHelper.STRING_TYPE;
 import static org.codehaus.groovy.ast.tools.GenericsUtils.addMethodGenerics;
 import static org.codehaus.groovy.ast.tools.GenericsUtils.applyGenericsContextToPlaceHolders;
 import static org.codehaus.groovy.ast.tools.GenericsUtils.correctToGenericsSpecRecurse;
@@ -96,8 +98,6 @@ import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
  *
  * Static compilation relies on static type checking, which explains why this visitor extends the type checker
  * visitor.
- *
- * @author Cedric Champeau
  */
 public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
     private static final ClassNode TYPECHECKED_CLASSNODE = ClassHelper.make(TypeChecked.class);
@@ -440,7 +440,14 @@ public class StaticCompilationVisitor extends StaticTypeCheckingVisitor {
         Expression collectionExpression = forLoop.getCollectionExpression();
         if (!(collectionExpression instanceof ClosureListExpression)) {
             final ClassNode collectionType = getType(forLoop.getCollectionExpression());
-            ClassNode componentType = inferLoopElementType(collectionType);
+            ClassNode forLoopVariableType = forLoop.getVariableType();
+            ClassNode componentType;
+            if (Character_TYPE.equals(ClassHelper.getWrapper(forLoopVariableType)) && STRING_TYPE.equals(collectionType)) {
+                // we allow auto-coercion here
+                componentType = forLoopVariableType;
+            } else {
+                componentType = inferLoopElementType(collectionType);
+            }
             forLoop.getVariable().setType(componentType);
             forLoop.getVariable().setOriginType(componentType);
         }

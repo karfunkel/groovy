@@ -28,8 +28,6 @@ import org.codehaus.groovy.ast.expr.VariableExpression
  * in nameAndTypeMapping before calling replaceIn().
  *
  * The VariableReplacedListener can be set if clients want to react to variable replacement.
- *
- * @author Johannes Link
  */
 @CompileStatic
 class VariableAccessReplacer {
@@ -47,13 +45,13 @@ class VariableAccessReplacer {
 
     void replaceIn(ASTNode root) {
         Closure<Boolean> whenParam = { VariableExpression expr ->
-            return nameAndTypeMapping.containsKey(expr.name)
+            nameAndTypeMapping.containsKey(expr.name)
         }
         Closure<VariableExpression> replaceWithLocalVariable = { VariableExpression expr ->
             Map nameAndType = nameAndTypeMapping[expr.name]
             VariableExpression newVar = AstHelper.createVariableReference(nameAndType)
             listener.variableReplaced(expr, newVar)
-            return newVar
+            newVar
         }
         new VariableExpressionReplacer(when: whenParam, replaceWith: replaceWithLocalVariable).replaceIn(root)
     }

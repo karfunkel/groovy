@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.groovy.ast.tools.ClassNodeUtils.addGeneratedConstructor;
 import static org.codehaus.groovy.ast.ClassHelper.make;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.args;
 import static org.codehaus.groovy.ast.tools.GeneralUtils.block;
@@ -46,8 +47,6 @@ import static org.codehaus.groovy.ast.tools.GenericsUtils.extractSuperClassGener
 
 /**
  * Handles generation of code for the {@code @}InheritConstructors annotation.
- *
- * @author Paul King
  */
 @GroovyASTTransformation(phase = CompilePhase.CANONICALIZATION)
 public class InheritConstructorsASTTransformation extends AbstractASTTransformation {
@@ -97,7 +96,7 @@ public class InheritConstructorsASTTransformation extends AbstractASTTransformat
         extractSuperClassGenerics(classNode, classNode.getSuperClass(), genericsSpec);
         List<Expression> theArgs = buildParams(origParams, params, genericsSpec, copyParameterAnnotations);
         if (isExisting(classNode, params)) return;
-        ConstructorNode added = classNode.addConstructor(consNode.getModifiers(), params, consNode.getExceptions(), block(ctorSuperS(args(theArgs))));
+        ConstructorNode added = addGeneratedConstructor(classNode, consNode.getModifiers(), params, consNode.getExceptions(), block(ctorSuperS(args(theArgs))));
         if (copyConstructorAnnotations) {
             added.addAnnotations(copyAnnotatedNodeAnnotations(consNode, MY_TYPE_NAME));
         }

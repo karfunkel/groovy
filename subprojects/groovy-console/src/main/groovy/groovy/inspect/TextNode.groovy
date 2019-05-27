@@ -18,11 +18,13 @@
  */
 /**
  * Represents a plain text node for use in the AST tree made by ASTBrowser 
- * 
- * @author Roshan Dawrani
  */
 package groovy.inspect
 
+import groovy.transform.CompileStatic
+
+@CompileStatic
+@Deprecated
 class TextNode {
     Object userObject
     List<List<String>> properties

@@ -58,6 +58,7 @@ menuBar {
         separator()
         menuItem(largerFontAction)
         menuItem(smallerFontAction)
+        checkBoxMenuItem(smartHighlighterAction, selected: controller.smartHighlighter)
         separator()
         checkBoxMenuItem(captureStdOutAction, selected: controller.captureStdOut)
         checkBoxMenuItem(captureStdErrAction, selected: controller.captureStdErr)
@@ -67,6 +68,7 @@ menuBar {
         checkBoxMenuItem(showToolbarAction, selected: controller.showToolbar)
         checkBoxMenuItem(detachedOutputAction, selected: controller.detachedOutput)
         checkBoxMenuItem(autoClearOutputAction, selected: controller.autoClearOutput)
+        checkBoxMenuItem(orientationVerticalAction, selected: controller.orientationVertical)
     }
 
     menu(text: 'History', mnemonic: 'I') {

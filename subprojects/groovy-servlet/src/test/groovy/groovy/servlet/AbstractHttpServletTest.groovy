@@ -18,16 +18,16 @@
  */
 package groovy.servlet
 
-import javax.servlet.http.HttpServletRequest
-import javax.servlet.ServletContext
+import groovy.test.GroovyTestCase
+
 import javax.servlet.ServletConfig
+import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletRequest
 
 /**
  * This test case tests the AbstractHttpServlet class. It uses a test
  * specific subclass called ConcreteHttpServlet to test the abstract
  * class in isolation from any implementations.
- *
- * @author Hamlet D'Arcy
  */
 class AbstractHttpServletTest extends GroovyTestCase {
 

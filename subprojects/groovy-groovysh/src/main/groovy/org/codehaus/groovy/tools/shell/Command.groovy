@@ -23,10 +23,9 @@ import jline.console.completer.Completer
 
 /**
  * Provides the interface required for command extensions.
- *
- * @author <a href="mailto:jason@planet57.com">Jason Dillon</a>
  */
 @CompileStatic
+@Deprecated
 interface Command
 {
     String getName()

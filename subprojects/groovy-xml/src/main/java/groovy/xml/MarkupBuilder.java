@@ -19,6 +19,7 @@
 package groovy.xml;
 
 import groovy.lang.Closure;
+import groovy.namespace.QName;
 import groovy.util.BuilderSupport;
 import groovy.util.IndentPrinter;
 import org.codehaus.groovy.runtime.StringGroovyMethods;
@@ -33,19 +34,23 @@ import java.util.Map;
  * The builder supports various 'pretty printed' formats.
  * <p>
  * Example:
- * <pre>new MarkupBuilder().root {
+ * <pre>
+ * new MarkupBuilder().root {
  *   a( a1:'one' ) {
- *     b { mkp.yield( '3 < 5' ) }
+ *     b { mkp.yield( '3 {@code <} 5' ) }
  *     c( a2:'two', 'blah' )
  *   }
- * }</pre>
+ * }
+ * </pre>
  * Will print the following to System.out:
- * <pre>&lt;root&gt;
+ * <pre>
+ * &lt;root&gt;
  *   &lt;a a1='one'&gt;
  *     &lt;b&gt;3 &amp;lt; 5&lt;/b&gt;
  *     &lt;c a2='two'&gt;blah&lt;/c&gt;
  *   &lt;/a&gt;
- * &lt;/root&gt;</pre>
+ * &lt;/root&gt;
+ * </pre>
  * Notes:
  * <ul>
  *    <li><code>mkp</code> is a special namespace used to escape
@@ -54,10 +59,6 @@ import java.util.Map;
  * See the javadoc for {@link #getMkp()} for further details.</li>
  *     <li>Note that tab, newline and carriage return characters are escaped within attributes, i.e. will become &amp;#09;, &amp;#10; and &amp;#13; respectively</li>
  * </ul>
- * @author <a href="mailto:james@coredevelopers.net">James Strachan</a>
- * @author Stefan Matthias Aust
- * @author <a href="mailto:scottstirling@rcn.com">Scott Stirling</a>
- * @author Paul King
  */
 public class MarkupBuilder extends BuilderSupport {
     private IndentPrinter out;
